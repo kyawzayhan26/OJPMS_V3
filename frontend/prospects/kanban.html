@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OJPMS</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="/assets/css/styles.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+<!-- SortableJS for drag-and-drop -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script defer src="/assets/js/utils.js"></script>
+<script defer src="/assets/js/api.js"></script>
+<script defer src="/assets/js/auth.js"></script>
+</head>
+  <body>
+    <div id="app-navbar"></div>
+    <div class="container py-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="h4 m-0">Prospects</h1>
+        <div>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#newProspectModal">+ New</button>
+          <a class="btn btn-outline-secondary" href="/applications/list.html">Applications</a>
+          <a class="btn btn-outline-secondary" href="/interviews/list.html">Interviews</a>
+          <a class="btn btn-outline-secondary" href="/clients/kanban.html">Clients</a>
+        </div>
+      </div>
+      <div class="alert alert-info small">Drag-and-drop is visual-only for Prospects until a <code>PATCH /api/prospects/:id/status</code> endpoint exists.</div>
+      <div class="row g-3" id="kanban">
+        <div class="col-12 col-md-3"><h6>New Enquiries</h6><div class="kanban-col" id="col-new"></div></div>
+        <div class="col-12 col-md-3"><h6>Assigned for Review</h6><div class="kanban-col" id="col-review"></div></div>
+        <div class="col-12 col-md-3"><h6>Application Submitted</h6><div class="kanban-col" id="col-submitted"></div></div>
+        <div class="col-12 col-md-3"><h6>Shortlisted / Interview</h6><div class="kanban-col" id="col-interview"></div></div>
+      </div>
+    </div>
+
+    <!-- New Prospect Modal -->
+    <div class="modal fade" id="newProspectModal" tabindex="-1">
+      <div class="modal-dialog">
+        <form class="modal-content" id="newProspectForm">
+          <div class="modal-header"><h5 class="modal-title">Add Prospect</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3"><label class="form-label">Full name</label><input class="form-control" name="full_name" required></div>
+            <div class="mb-3"><label class="form-label">Contact phone</label><input class="form-control" name="contact_phone" required></div>
+            <div class="mb-3"><label class="form-label">Email (optional)</label><input type="email" class="form-control" name="contact_email"></div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary" type="submit">Create</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="/assets/js/prospects.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        renderNavbar();
+        await requireAuthGuard();
+        loadProspectsKanban();
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
