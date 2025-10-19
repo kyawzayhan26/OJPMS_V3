@@ -1,0 +1,412 @@
+{
+  "quickActions": [
+    {
+      "label": "New Application",
+      "href": "applications.html",
+      "message": "Launching new application form."
+    },
+    {
+      "label": "Schedule Interview",
+      "href": "interviews.html",
+      "message": "Interview scheduling workflow coming soon."
+    },
+    {
+      "label": "Add Prospect",
+      "href": "prospects.html",
+      "message": "Capture new prospect details."
+    },
+    {
+      "label": "Client Summary",
+      "view": "clientDetail"
+    }
+  ],
+  "filters": {
+    "applications": [
+      {
+        "id": "applicationStatus",
+        "label": "Status",
+        "options": [
+          {
+            "value": "",
+            "label": "All",
+            "default": true
+          },
+          {
+            "value": "in_review",
+            "label": "In Review"
+          },
+          {
+            "value": "interview",
+            "label": "Interview"
+          },
+          {
+            "value": "offer",
+            "label": "Offer"
+          }
+        ]
+      }
+    ],
+    "clients": [
+      {
+        "id": "clientTier",
+        "label": "Engagement",
+        "options": [
+          {
+            "value": "",
+            "label": "All",
+            "default": true
+          },
+          {
+            "value": "platinum",
+            "label": "Platinum"
+          },
+          {
+            "value": "gold",
+            "label": "Gold"
+          },
+          {
+            "value": "silver",
+            "label": "Silver"
+          }
+        ]
+      }
+    ],
+    "prospects": [
+      {
+        "id": "prospectOwner",
+        "label": "Owner",
+        "options": [
+          {
+            "value": "",
+            "label": "All",
+            "default": true
+          },
+          {
+            "value": "rachel",
+            "label": "Rachel"
+          },
+          {
+            "value": "emmett",
+            "label": "Emmett"
+          },
+          {
+            "value": "sasha",
+            "label": "Sasha"
+          }
+        ]
+      }
+    ],
+    "interviews": [
+      {
+        "id": "interviewWeek",
+        "label": "Week",
+        "options": [
+          {
+            "value": "",
+            "label": "All",
+            "default": true
+          },
+          {
+            "value": "current",
+            "label": "This Week"
+          },
+          {
+            "value": "next",
+            "label": "Next Week"
+          }
+        ]
+      }
+    ],
+    "clientDetail": []
+  },
+  "views": [
+    {
+      "id": "applications",
+      "label": "Applications",
+      "type": "list",
+      "filterKey": "applicationStatus",
+      "emptyState": {
+        "title": "No applications match your filters",
+        "description": "Try expanding your criteria or add a new application."
+      },
+      "items": [
+        {
+          "title": "Front-End Engineer",
+          "subtitle": "Velocity Labs",
+          "description": "Candidate: Jordan Miles \u00b7 Recruiter: Casey",
+          "status": "in_review",
+          "badge": {
+            "label": "In Review",
+            "variant": "info"
+          },
+          "tags": [
+            "Remote",
+            "React",
+            "UI/UX"
+          ]
+        },
+        {
+          "title": "Product Manager",
+          "subtitle": "Northwind Logistics",
+          "description": "Candidate: Priya Shah \u00b7 Recruiter: Ethan",
+          "status": "offer",
+          "badge": {
+            "label": "Offer Sent",
+            "variant": "success"
+          },
+          "tags": [
+            "Hybrid",
+            "Enterprise",
+            "Supply Chain"
+          ]
+        },
+        {
+          "title": "Data Analyst",
+          "subtitle": "Evergreen Bank",
+          "description": "Candidate: Malik Carter \u00b7 Recruiter: Dana",
+          "status": "interview",
+          "badge": {
+            "label": "Interview",
+            "variant": "warning"
+          },
+          "tags": [
+            "SQL",
+            "Finance",
+            "Tableau"
+          ]
+        }
+      ],
+      "filterProperty": "status"
+    },
+    {
+      "id": "clients",
+      "label": "Clients",
+      "type": "list",
+      "filterKey": "clientTier",
+      "emptyState": {
+        "title": "No clients in this segment",
+        "description": "Create a new engagement or adjust the segment filter."
+      },
+      "items": [
+        {
+          "title": "Acme Robotics",
+          "subtitle": "San Francisco, CA",
+          "description": "Primary Contact: Lisa Monroe",
+          "status": "platinum",
+          "badge": {
+            "label": "Platinum",
+            "variant": "primary"
+          },
+          "tags": [
+            "Robotics",
+            "Manufacturing",
+            "Retained"
+          ]
+        },
+        {
+          "title": "Beacon Analytics",
+          "subtitle": "Austin, TX",
+          "description": "Primary Contact: David Tran",
+          "status": "gold",
+          "badge": {
+            "label": "Gold",
+            "variant": "warning"
+          },
+          "tags": [
+            "SaaS",
+            "Data",
+            "Growth"
+          ]
+        },
+        {
+          "title": "Harbor Health",
+          "subtitle": "Boston, MA",
+          "description": "Primary Contact: Mya Patel",
+          "status": "silver",
+          "badge": {
+            "label": "Silver",
+            "variant": "secondary"
+          },
+          "tags": [
+            "Healthcare",
+            "Clinical",
+            "RPO"
+          ]
+        }
+      ],
+      "filterProperty": "status"
+    },
+    {
+      "id": "prospects",
+      "label": "Prospects",
+      "type": "board",
+      "filterKey": "prospectOwner",
+      "columns": [
+        {
+          "id": "discovery",
+          "label": "Discovery"
+        },
+        {
+          "id": "proposal",
+          "label": "Proposal"
+        },
+        {
+          "id": "contract",
+          "label": "Contract"
+        }
+      ],
+      "items": [
+        {
+          "title": "Synergy Retail",
+          "subtitle": "Owner: Rachel",
+          "description": "Needs: Omnichannel strategy revamp",
+          "status": "",
+          "column": "discovery",
+          "badge": {
+            "label": "Enterprise",
+            "variant": "info"
+          },
+          "tags": [
+            "Retail",
+            "Discovery"
+          ],
+          "owner": "rachel"
+        },
+        {
+          "title": "Summit Outdoors",
+          "subtitle": "Owner: Emmett",
+          "description": "Needs: Seasonal hiring program",
+          "status": "",
+          "column": "proposal",
+          "badge": {
+            "label": "SMB",
+            "variant": "secondary"
+          },
+          "tags": [
+            "Retail",
+            "Hiring"
+          ],
+          "owner": "emmett"
+        },
+        {
+          "title": "Brightside Solar",
+          "subtitle": "Owner: Sasha",
+          "description": "Needs: Sales director search",
+          "status": "",
+          "column": "contract",
+          "badge": {
+            "label": "High Priority",
+            "variant": "danger"
+          },
+          "tags": [
+            "Energy",
+            "Executive"
+          ],
+          "owner": "sasha"
+        }
+      ],
+      "filterProperty": "owner"
+    },
+    {
+      "id": "interviews",
+      "label": "Interviews",
+      "type": "list",
+      "filterKey": "interviewWeek",
+      "emptyState": {
+        "title": "No interviews scheduled",
+        "description": "Pick a different time range or schedule a new interview."
+      },
+      "items": [
+        {
+          "title": "UX Researcher",
+          "subtitle": "Candidate: Leila Torres",
+          "description": "Client: Acme Robotics \u00b7 10:00 AM",
+          "status": "current",
+          "badge": {
+            "label": "Today",
+            "variant": "success"
+          },
+          "tags": [
+            "Panel",
+            "Onsite"
+          ]
+        },
+        {
+          "title": "Solutions Architect",
+          "subtitle": "Candidate: Omar Gibbs",
+          "description": "Client: Beacon Analytics \u00b7 2:00 PM",
+          "status": "current",
+          "badge": {
+            "label": "Today",
+            "variant": "primary"
+          },
+          "tags": [
+            "Technical",
+            "Virtual"
+          ]
+        },
+        {
+          "title": "People Ops Lead",
+          "subtitle": "Candidate: Avery Sloan",
+          "description": "Client: Harbor Health \u00b7 Friday 11:00 AM",
+          "status": "next",
+          "badge": {
+            "label": "Upcoming",
+            "variant": "warning"
+          },
+          "tags": [
+            "Leadership",
+            "Panel"
+          ]
+        }
+      ],
+      "filterProperty": "status"
+    },
+    {
+      "id": "clientDetail",
+      "label": "Client Detail",
+      "type": "detail",
+      "title": "Acme Robotics",
+      "subtitle": "Retained Search \u00b7 San Francisco, CA",
+      "badge": {
+        "label": "Platinum",
+        "variant": "primary"
+      },
+      "sections": [
+        {
+          "label": "Engagement Overview",
+          "items": [
+            "SOW Active through Q4",
+            "Primary contact: Lisa Monroe",
+            "Open roles: 5"
+          ]
+        },
+        {
+          "label": "Active Searches",
+          "items": [
+            "Head of Automation Engineering",
+            "Director of Product Innovation",
+            "Senior Robotics Technician"
+          ]
+        },
+        {
+          "label": "Recent Notes",
+          "items": [
+            "Onsite visit scheduled for April 22",
+            "Requested pipeline report for automation engineers",
+            "Interested in employer branding workshop"
+          ]
+        },
+        {
+          "label": "Key Stakeholders",
+          "items": [
+            "CEO: Marissa Burke",
+            "VP Engineering: Colin Reyes",
+            "HR Director: Taylor Sim"
+          ]
+        }
+      ],
+      "filterProperty": null
+    }
+  ]
+}

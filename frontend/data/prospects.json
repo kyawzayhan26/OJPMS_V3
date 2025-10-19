@@ -1,0 +1,69 @@
+{
+  "columns": [
+    {
+      "id": "new",
+      "label": "New Prospects",
+      "description": "Ready for initial outreach",
+      "items": [
+        {
+          "name": "Amelia Ray",
+          "company": "Stratus AI",
+          "role": "Design Lead",
+          "owner": "Rachel",
+          "updated": "2024-04-18",
+          "tags": ["Referral", "Remote"]
+        },
+        {
+          "name": "Luis Fernandes",
+          "company": "Cascade Finance",
+          "role": "Senior Analyst",
+          "owner": "Sasha",
+          "updated": "2024-04-12",
+          "tags": ["Outbound", "Equity"]
+        }
+      ]
+    },
+    {
+      "id": "engaged",
+      "label": "Engaged",
+      "description": "In active conversation",
+      "items": [
+        {
+          "name": "Noah Patel",
+          "company": "Aurora Retail",
+          "role": "Operations Director",
+          "owner": "Emmett",
+          "updated": "2024-04-16",
+          "tags": ["Warm", "Enterprise"]
+        },
+        {
+          "name": "Chloe Griffin",
+          "company": "Helio Labs",
+          "role": "Head of Marketing",
+          "owner": "Rachel",
+          "updated": "2024-04-10",
+          "tags": ["Demo Scheduled"]
+        }
+      ]
+    },
+    {
+      "id": "qualified",
+      "label": "Qualified",
+      "description": "Ready for conversion",
+      "items": [
+        {
+          "name": "Marcus Lee",
+          "company": "Quantum Industries",
+          "role": "VP Technology",
+          "owner": "Sasha",
+          "updated": "2024-04-08",
+          "tags": ["High Fit", "Enterprise"]
+        }
+      ]
+    }
+  ],
+  "emptyState": {
+    "title": "No prospects yet",
+    "description": "Add new prospects or update filters to see records."
+  }
+}

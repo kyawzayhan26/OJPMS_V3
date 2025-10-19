@@ -1,0 +1,71 @@
+{
+  "upcoming": [
+    {
+      "date": "2024-04-22",
+      "dayLabel": "Monday",
+      "items": [
+        {
+          "candidate": "Priya Shah",
+          "role": "Product Manager",
+          "stage": "Panel Interview",
+          "time": "09:00",
+          "interviewer": "M. Lewis",
+          "location": "Zoom"
+        },
+        {
+          "candidate": "Troy Wilson",
+          "role": "QA Automation Lead",
+          "stage": "Technical Screen",
+          "time": "11:30",
+          "interviewer": "A. Romero",
+          "location": "Teams"
+        }
+      ]
+    },
+    {
+      "date": "2024-04-23",
+      "dayLabel": "Tuesday",
+      "items": [
+        {
+          "candidate": "Lia Humphries",
+          "role": "Security Analyst",
+          "stage": "Offer Review",
+          "time": "13:00",
+          "interviewer": "Morgan Lee",
+          "location": "Phone"
+        }
+      ]
+    },
+    {
+      "date": "2024-04-24",
+      "dayLabel": "Wednesday",
+      "items": [
+        {
+          "candidate": "Jordan Miles",
+          "role": "Front-End Engineer",
+          "stage": "Hiring Manager",
+          "time": "10:30",
+          "interviewer": "L. Nguyen",
+          "location": "Onsite"
+        },
+        {
+          "candidate": "Amelia Ray",
+          "role": "Design Lead",
+          "stage": "Portfolio Review",
+          "time": "15:00",
+          "interviewer": "S. Patel",
+          "location": "Zoom"
+        }
+      ]
+    }
+  ],
+  "metrics": [
+    { "label": "Interviews this week", "value": 18 },
+    { "label": "Reschedules", "value": 2 },
+    { "label": "Feedback pending", "value": 5 }
+  ],
+  "emptyState": {
+    "title": "No interviews scheduled",
+    "description": "Use the schedule action to add interviews to the calendar."
+  }
+}

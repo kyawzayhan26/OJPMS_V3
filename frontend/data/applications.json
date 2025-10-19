@@ -1,0 +1,78 @@
+{
+  "summary": [
+    {
+      "label": "Open Applications",
+      "value": 128,
+      "change": "+5.4% vs last week"
+    },
+    {
+      "label": "Interviews Scheduled",
+      "value": 32,
+      "change": "12 this week"
+    },
+    {
+      "label": "Offers Extended",
+      "value": 9,
+      "change": "3 awaiting acceptance"
+    }
+  ],
+  "filters": {
+    "status": [
+      { "value": "", "label": "All statuses", "default": true },
+      { "value": "in_review", "label": "In Review" },
+      { "value": "interview", "label": "Interview" },
+      { "value": "offer", "label": "Offer" },
+      { "value": "hired", "label": "Hired" }
+    ]
+  },
+  "applications": [
+    {
+      "id": "APP-2314",
+      "title": "Front-End Engineer",
+      "company": "Velocity Labs",
+      "candidate": "Jordan Miles",
+      "status": "in_review",
+      "posted": "2024-04-14",
+      "recruiter": "Casey",
+      "badge": { "label": "In Review", "variant": "info" },
+      "tags": ["Remote", "React", "UI/UX"]
+    },
+    {
+      "id": "APP-2278",
+      "title": "Product Manager",
+      "company": "Northwind Logistics",
+      "candidate": "Priya Shah",
+      "status": "offer",
+      "posted": "2024-03-18",
+      "recruiter": "Ethan",
+      "badge": { "label": "Offer", "variant": "success" },
+      "tags": ["Hybrid", "Enterprise", "Supply Chain"]
+    },
+    {
+      "id": "APP-2251",
+      "title": "QA Automation Lead",
+      "company": "Evergreen Analytics",
+      "candidate": "Troy Wilson",
+      "status": "interview",
+      "posted": "2024-04-02",
+      "recruiter": "Anika",
+      "badge": { "label": "Interview", "variant": "warning" },
+      "tags": ["SDET", "Cypress"]
+    },
+    {
+      "id": "APP-2239",
+      "title": "Security Analyst",
+      "company": "Brightline Health",
+      "candidate": "Lia Humphries",
+      "status": "hired",
+      "posted": "2024-02-21",
+      "recruiter": "Morgan",
+      "badge": { "label": "Hired", "variant": "primary" },
+      "tags": ["Onsite", "Compliance"]
+    }
+  ],
+  "emptyState": {
+    "title": "No applications match your filters",
+    "description": "Try changing the status filter or add a new application."
+  }
+}
