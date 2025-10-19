@@ -1,5 +1,6 @@
+// src/routes/applications.js
 import { Router } from 'express';
-import { query, body } from 'express-validator';
+import { query, body, param } from 'express-validator';
 import { getPool } from '../utils/db.js';
 import { requireAuth, can } from '../middleware/auth.js';
 import { writeAudit } from '../utils/audit.js';
@@ -32,7 +33,7 @@ router.get('/',
 
       const q = likeParam(search);
       const orderBy = orderByClause(
-        ['created_at', 'status', 'prospect_name', 'job_title', 'submitted_at', 'updated_at', 'id'],
+        ['created_at', 'status', 'prospect_name', 'job_title', 'submitted_at', 'employer_response_at', 'updated_at', 'id'],
         sort,
         'created_at DESC'
       );
@@ -107,6 +108,9 @@ router.get('/',
 
 /**
  * POST /applications
+ * Uses all relevant fields (including employer_response_at)
+ * - submitted_at set on first Submitted
+ * - employer_response_at set if status in (Rejected, Shortlisted) and none provided
  */
 router.post('/',
   requireAuth,
@@ -115,18 +119,29 @@ router.post('/',
   body('job_id').isInt().toInt(),
   body('status').isIn(['Draft', 'Submitted', 'Rejected', 'Shortlisted']),
   body('notes').optional().isString(),
+  body('employer_response_at').optional().isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const { prospect_id, job_id, status, notes = null } = req.body;
+      const {
+        prospect_id,
+        job_id,
+        status,
+        notes = null,
+        employer_response_at = null
+      } = req.body;
+
       const result = await getPool().request()
         .input('prospect_id', prospect_id)
         .input('job_id', job_id)
         .input('submitted_by', req.user?.userId || null)
         .input('status', status)
         .input('notes', notes)
+        .input('employer_response_at', employer_response_at)
         .query(`
-          INSERT INTO Applications (prospect_id, job_id, submitted_by, status, submitted_at, notes)
+          INSERT INTO Applications (
+            prospect_id, job_id, submitted_by, status, submitted_at, employer_response_at, notes, created_at, isDeleted
+          )
           OUTPUT INSERTED.*
           VALUES (
             @prospect_id,
@@ -134,7 +149,14 @@ router.post('/',
             @submitted_by,
             @status,
             CASE WHEN @status='Submitted' THEN SYSUTCDATETIME() ELSE NULL END,
-            @notes
+            CASE
+              WHEN @employer_response_at IS NOT NULL THEN @employer_response_at
+              WHEN @status IN ('Rejected','Shortlisted') THEN SYSUTCDATETIME()
+              ELSE NULL
+            END,
+            @notes,
+            SYSUTCDATETIME(),
+            0
           );
         `);
 
@@ -153,27 +175,46 @@ router.post('/',
   }
 );
 
-// UPDATE application
+// UPDATE application (status/notes/employer_response_at)
+// - preserves first submitted_at timestamp
+// - sets employer_response_at if moving to Rejected/Shortlisted and not provided
 router.put(
   '/:id',
   requireAuth,
   can('applications:write'),
+  param('id').toInt().isInt({ min: 1 }),
   body('status').optional().isIn(['Draft','Submitted','Rejected','Shortlisted']),
   body('notes').optional().isString(),
+  body('employer_response_at').optional().isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const { status=null, notes=null } = req.body;
+      const {
+        status = null,
+        notes = null,
+        employer_response_at = null
+      } = req.body;
 
       const result = await getPool().request()
         .input('id', id)
         .input('status', status)
         .input('notes', notes)
+        .input('employer_response_at', employer_response_at)
         .query(`
           UPDATE Applications
              SET status = COALESCE(@status, status),
-                 submitted_at = CASE WHEN @status='Submitted' THEN ISNULL(submitted_at, SYSUTCDATETIME()) ELSE submitted_at END,
+                 submitted_at =
+                   CASE
+                     WHEN @status='Submitted' THEN ISNULL(submitted_at, SYSUTCDATETIME())
+                     ELSE submitted_at
+                   END,
+                 employer_response_at =
+                   CASE
+                     WHEN @employer_response_at IS NOT NULL THEN @employer_response_at
+                     WHEN @status IN ('Rejected','Shortlisted') THEN ISNULL(employer_response_at, SYSUTCDATETIME())
+                     ELSE employer_response_at
+                   END,
                  updated_at = SYSUTCDATETIME(),
                  notes = COALESCE(@notes, notes)
            WHERE id=@id AND isDeleted=0;
@@ -183,7 +224,15 @@ router.put(
 
       const row = result.recordset[0];
       if (!row) return res.status(404).json({ message: 'Not found' });
-      await writeAudit({ req, actorUserId: req.user?.userId, action: 'APPLICATION_UPDATE', entity: 'Applications', entityId: id, details: row });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId,
+        action: 'APPLICATION_UPDATE',
+        entity: 'Applications',
+        entityId: id,
+        details: row
+      });
       res.json(row);
     } catch (err) { next(err); }
   }
@@ -194,6 +243,7 @@ router.delete(
   '/:id',
   requireAuth,
   can('applications:write'),
+  param('id').toInt().isInt({ min: 1 }),
   handleValidation,
   async (req, res, next) => {
     try {
@@ -205,7 +255,14 @@ router.delete(
           SELECT * FROM Applications WHERE id=@id;
         `);
       if (!result.recordset[0]) return res.status(404).json({ message: 'Not found' });
-      await writeAudit({ req, actorUserId: req.user?.userId, action: 'APPLICATION_DELETE_SOFT', entity: 'Applications', entityId: id });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId,
+        action: 'APPLICATION_DELETE_SOFT',
+        entity: 'Applications',
+        entityId: id
+      });
       res.json({ ok: true });
     } catch (err) { next(err); }
   }

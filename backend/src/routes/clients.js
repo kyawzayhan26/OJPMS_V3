@@ -1,3 +1,4 @@
+// src/routes/clients.js
 import { Router } from 'express';
 import { query, body, param } from 'express-validator';
 import { getPool } from '../utils/db.js';
@@ -97,7 +98,7 @@ router.get(
   }
 );
 
-// CREATE client
+// CREATE client (uses all available fields from schema)
 router.post(
   '/',
   requireAuth,
@@ -109,20 +110,22 @@ router.post(
     'SmartCard_InProgress','Visa_InProgress','Payment_Pending','FlightBooking_Pending',
     'Accommodation_Pending','Approved_For_Deployment','Departed'
   ]),
+  body('remarks1').optional().isString(),
   handleValidation,
   async (req, res, next) => {
     const pool = getPool();
-    const tx = new (await import('mssql')).default.Transaction(pool);
+    const tx = new sql.Transaction(pool);
     try {
       await tx.begin();
       const { prospect_id, full_name, passport_no=null, status, remarks1=null } = req.body;
 
-      const ins = await new (await import('mssql')).default.Request(tx)
-        .input('prospect_id', (await import('mssql')).default.BigInt, prospect_id)
-        .input('full_name', (await import('mssql')).default.VarChar, full_name)
-        .input('passport_no', (await import('mssql')).default.VarChar, passport_no)
-        .input('status', (await import('mssql')).default.VarChar, status)
-        .input('remarks1', (await import('mssql')).default.NVarChar, remarks1)
+      // Insert client
+      const ins = await new sql.Request(tx)
+        .input('prospect_id', sql.BigInt, prospect_id)
+        .input('full_name', sql.VarChar, full_name)
+        .input('passport_no', sql.VarChar, passport_no)
+        .input('status', sql.VarChar, status)
+        .input('remarks1', sql.NVarChar, remarks1)
         .query(`
           INSERT INTO Clients (prospect_id, full_name, passport_no, status, remarks1, created_at, isDeleted)
           OUTPUT INSERTED.*
@@ -130,22 +133,88 @@ router.post(
         `);
       const row = ins.recordset[0];
 
-      await new (await import('mssql')).default.Request(tx)
-        .input('client_id', (await import('mssql')).default.BigInt, row.id)
-        .input('status', (await import('mssql')).default.VarChar, status)
-        .input('changed_by', (await import('mssql')).default.BigInt, req.user?.userId || null)
+      // Status history
+      await new sql.Request(tx)
+        .input('client_id', sql.BigInt, row.id)
+        .input('status', sql.VarChar, status)
+        .input('changed_by', sql.BigInt, req.user?.userId || null)
         .query(`
           INSERT INTO ClientStatusHistory (client_id, from_status, to_status, changed_by, changed_at, remarks)
           VALUES (@client_id, @status, @status, @changed_by, SYSUTCDATETIME(), N'Client created');
         `);
 
       await tx.commit();
-      await writeAudit({ req, actorUserId: req.user?.userId, action: 'CLIENT_CREATE', entity: 'Clients', entityId: row.id, details: row });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId,
+        action: 'CLIENT_CREATE',
+        entity: 'Clients',
+        entityId: row.id,
+        details: row
+      });
+
       res.status(201).json(row);
     } catch (err) {
       try { await tx.rollback(); } catch(_) {}
       next(err);
     }
+  }
+);
+
+// UPDATE client (non-status fields)
+router.put(
+  '/:id',
+  requireAuth,
+  can('clients:write'),
+  param('id').toInt().isInt({ min: 1 }),
+  body('prospect_id').optional().toInt().isInt({ min: 1 }),
+  body('full_name').optional().isString().isLength({ min: 2 }),
+  body('passport_no').optional().isString(),
+  body('remarks1').optional().isString(),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const {
+        prospect_id = null,
+        full_name   = null,
+        passport_no = null,
+        remarks1    = null
+      } = req.body;
+
+      const result = await getPool().request()
+        .input('id', id)
+        .input('prospect_id', prospect_id)
+        .input('full_name', full_name)
+        .input('passport_no', passport_no)
+        .input('remarks1', remarks1)
+        .query(`
+          UPDATE Clients
+             SET prospect_id = COALESCE(@prospect_id, prospect_id),
+                 full_name   = COALESCE(@full_name, full_name),
+                 passport_no = COALESCE(@passport_no, passport_no),
+                 remarks1    = COALESCE(@remarks1, remarks1),
+                 updated_at  = SYSUTCDATETIME()
+           WHERE id=@id AND isDeleted=0;
+
+          SELECT * FROM Clients WHERE id=@id;
+        `);
+
+      const row = result.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId || null,
+        action: 'CLIENT_UPDATE',
+        entity: 'Clients',
+        entityId: id,
+        details: row
+      });
+
+      res.json(row);
+    } catch (err) { next(err); }
   }
 );
 
@@ -166,13 +235,21 @@ router.delete(
           SELECT * FROM Clients WHERE id=@id;
         `);
       if (!result.recordset[0]) return res.status(404).json({ message: 'Not found' });
-      await writeAudit({ req, actorUserId: req.user?.userId, action: 'CLIENT_DELETE_SOFT', entity: 'Clients', entityId: id });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId,
+        action: 'CLIENT_DELETE_SOFT',
+        entity: 'Clients',
+        entityId: id
+      });
+
       res.json({ ok: true });
     } catch (err) { next(err); }
   }
 );
 
-// UPDATE client status
+// UPDATE client status (audited + status history)
 router.patch(
   '/:id/status',
   requireAuth,
@@ -199,7 +276,9 @@ router.patch(
       await tx.begin();
 
       let from_status;
+
       try {
+        // 1) Read current status
         const r1 = await new sql.Request(tx)
           .input('id', sql.BigInt, id)
           .query(`SELECT TOP 1 status FROM Clients WHERE id=@id AND isDeleted=0`);
@@ -216,6 +295,7 @@ router.patch(
           return res.status(200).json({ ok: true, from_status, to_status, note: 'No change' });
         }
 
+        // 2) Update client status
         await new sql.Request(tx)
           .input('id', sql.BigInt, id)
           .input('to_status', sql.NVarChar, to_status)
@@ -226,6 +306,7 @@ router.patch(
              WHERE id = @id
           `);
 
+        // 3) Insert status history
         await new sql.Request(tx)
           .input('client_id', sql.BigInt, id)
           .input('from_status', sql.NVarChar, from_status)
@@ -245,6 +326,7 @@ router.patch(
         throw e;
       }
 
+      // 4) Audit after successful commit
       await writeAudit({
         req,
         actorUserId: req.user?.userId || null,
