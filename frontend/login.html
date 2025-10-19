@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OJPMS Login</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous"
+    />
+    <link rel="stylesheet" href="css/styles.css" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css"
+      integrity="sha384-Pj1zY0uJe6VqC0DpDVuPEw24kTx5cDIeEJD7BqXc9E+u6KDAdAm8YGgPJ+Gm7Sk/"
+      crossorigin="anonymous"
+    />
+  </head>
+  <body class="login-body" data-page="login">
+    <header class="py-4">
+      <div class="container d-flex justify-content-between align-items-center">
+        <a class="navbar-brand fw-semibold" href="index.html">OJPMS</a>
+        <a class="btn btn-outline-primary btn-sm" href="index.html">
+          <i class="bi bi-speedometer2 me-1"></i>
+          Go to dashboard
+        </a>
+      </div>
+    </header>
+
+    <main class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-xl-5 col-lg-6">
+          <div class="card shadow-sm border-0 p-4 p-lg-5">
+            <div class="text-center mb-4" id="loginBanner">
+              <h2 class="fw-semibold" id="loginTitle">Welcome back</h2>
+              <p class="text-muted" id="loginSubtitle">
+                Sign in with your work email to continue.
+              </p>
+            </div>
+            <form id="loginForm" novalidate>
+              <div class="mb-3">
+                <label for="loginEmail" class="form-label">Email address</label>
+                <input
+                  type="email"
+                  class="form-control"
+                  id="loginEmail"
+                  placeholder="name@company.com"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="loginPassword" class="form-label">Password</label>
+                <input
+                  type="password"
+                  class="form-control"
+                  id="loginPassword"
+                  placeholder="Enter password"
+                  required
+                />
+              </div>
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="form-check">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    value="remember"
+                    id="rememberMe"
+                  />
+                  <label class="form-check-label" for="rememberMe">
+                    Remember me
+                  </label>
+                </div>
+                <a href="mailto:support@ojpms.com" class="small">Need help?</a>
+              </div>
+              <div id="loginFeedback" class="text-danger small mb-3" role="alert"></div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">Sign in</button>
+              </div>
+            </form>
+            <div class="mt-4 text-center small" id="loginHelp"></div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.8/dist/axios.min.js" integrity="sha256-S2VINeodIZ6Tn6PvxI6Bfq5lHppZArYrusS4x+h0/pM=" crossorigin="anonymous"></script>
+    <script src="js/utils/api.js"></script>
+    <script src="js/common.js"></script>
+    <script src="js/login.js"></script>
+  </body>
+</html>

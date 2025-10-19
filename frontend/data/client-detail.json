@@ -1,0 +1,36 @@
+{
+  "name": "Northwind Logistics",
+  "subtitle": "Enterprise Supply Chain \u00b7 Since 2016",
+  "badge": { "label": "Platinum", "variant": "info" },
+  "summary": [
+    { "label": "Active Searches", "value": 6 },
+    { "label": "Placements", "value": 24 },
+    { "label": "Avg. Time to Fill", "value": "28 days" }
+  ],
+  "sections": [
+    {
+      "label": "Key Contacts",
+      "items": [
+        "Priya Kapoor \u00b7 VP People",
+        "Daniel Reid \u00b7 Talent Director",
+        "Marina Holt \u00b7 Finance Partner"
+      ]
+    },
+    {
+      "label": "Active Searches",
+      "items": [
+        "Product Manager \u00b7 Hiring Manager: Priya Kapoor",
+        "Security Analyst \u00b7 Hiring Manager: Morgan Lane",
+        "Operations Director \u00b7 Hiring Manager: Daniel Reid"
+      ]
+    },
+    {
+      "label": "Recent Notes",
+      "items": [
+        "Apr 18: Priya approved expansion of RPO contract",
+        "Apr 15: Offer accepted by Operations Analyst candidate",
+        "Apr 10: Finance team requested quarterly reporting template"
+      ]
+    }
+  ]
+}
