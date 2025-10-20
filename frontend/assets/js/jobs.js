@@ -39,7 +39,7 @@ async function loadJobsList() {
             <div class="small text-muted">Salary: ${job.salary ?? 'N/A'}</div>
             <div class="d-flex justify-content-between align-items-center">
               <span class="small text-muted">Created ${formatDate(job.created_at)}</span>
-              <a class="btn btn-sm btn-outline-primary" href="/jobs/details.html?id=${job.id}">View</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('jobs/details.html?id=' + job.id)}">View</a>
             </div>
           </div>
         </div>`
@@ -184,7 +184,7 @@ async function loadJobDetails() {
       try {
         await api.delete(`/jobs/${id}`);
         showAlert('alert-box', 'Job deleted.', 'success');
-        setTimeout(() => (window.location.href = '/jobs/list.html'), 800);
+        setTimeout(() => navigateTo('jobs/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete job', 'danger');
       }

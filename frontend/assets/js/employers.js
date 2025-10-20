@@ -13,7 +13,7 @@ function employerCard(employer) {
         <div class="small text-muted">${employer.contact_email || 'No email provided'}</div>
         <div class="d-flex justify-content-between align-items-center">
           <span class="small text-muted">Created ${formatDate(employer.created_at)}</span>
-          <a class="btn btn-sm btn-outline-primary" href="/employers/details.html?id=${employer.id}">View</a>
+          <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('employers/details.html?id=' + employer.id)}">View</a>
         </div>
       </div>
     </div>`;
@@ -176,7 +176,7 @@ async function loadEmployerDetails() {
       try {
         await api.delete(`/employers/${id}`);
         showAlert('alert-box', 'Employer deleted.', 'success');
-        setTimeout(() => (window.location.href = '/employers/list.html'), 800);
+        setTimeout(() => navigateTo('employers/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete employer', 'danger');
       }

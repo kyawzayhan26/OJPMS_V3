@@ -47,7 +47,7 @@ async function loadPaymentsList() {
             <div class="small text-muted">Amount: ${pmt.amount} ${pmt.currency}</div>
             <div class="d-flex justify-content-between align-items-center">
               <span class="small text-muted">Collected ${pmt.collected_at ? formatDate(pmt.collected_at) : '—'}</span>
-              <a class="btn btn-sm btn-outline-primary" href="/payments/details.html?id=${pmt.id}">View</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('payments/details.html?id=' + pmt.id)}">View</a>
             </div>
           </div>
         </div>`

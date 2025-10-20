@@ -36,7 +36,7 @@ async function loadApplicationsList() {
             <div class="small text-muted">Submitted: ${app.submitted_at ? formatDate(app.submitted_at) : '—'}</div>
             <div class="d-flex justify-content-between align-items-center">
               <span class="small text-muted">Updated ${formatDate(app.updated_at || app.created_at)}</span>
-              <a class="btn btn-sm btn-outline-primary" href="/applications/details.html?id=${app.id}">View</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('applications/details.html?id=' + app.id)}">View</a>
             </div>
           </div>
         </div>`
@@ -174,7 +174,7 @@ async function loadApplicationDetails() {
       try {
         await api.delete(`/applications/${id}`);
         showAlert('alert-box', 'Application deleted.', 'success');
-        setTimeout(() => (window.location.href = '/applications/list.html'), 800);
+        setTimeout(() => navigateTo('applications/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete application', 'danger');
       }

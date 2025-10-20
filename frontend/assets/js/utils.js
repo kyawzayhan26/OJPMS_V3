@@ -1,64 +1,102 @@
+const FRONTEND_ROOT_SEGMENT = '/frontend/';
+
+const APP_BASE_PATH = (() => {
+  try {
+    const { pathname } = window.location;
+    const markerIndex = pathname.indexOf(FRONTEND_ROOT_SEGMENT);
+    if (markerIndex !== -1) {
+      return pathname.slice(0, markerIndex + FRONTEND_ROOT_SEGMENT.length - 1);
+    }
+    if (pathname.endsWith('/frontend')) {
+      return pathname.slice(0, pathname.lastIndexOf('/frontend') + '/frontend'.length);
+    }
+  } catch (err) {
+    // ignore errors when window is unavailable (e.g. SSR tests)
+  }
+  return '';
+})();
+
+function resolveAppPath(path = '') {
+  const clean = String(path || '').replace(/^\/+/, '');
+  if (!clean) {
+    return APP_BASE_PATH || '/';
+  }
+  let base = APP_BASE_PATH || '';
+  while (base.endsWith('/')) base = base.slice(0, -1);
+  let suffix = clean;
+  while (suffix.startsWith('/')) suffix = suffix.slice(1);
+  if (!base) {
+    return `/${suffix}`;
+  }
+  return `${base}/${suffix}`;
+}
+
+function navigateTo(path) {
+  window.location.href = resolveAppPath(path);
+}
+
 function renderNavbar() {
   const user = JSON.parse(localStorage.getItem('ojpms_user') || 'null');
   const path = window.location.pathname;
   const links = [
     {
-      href: '/prospects/list.html',
+      path: 'prospects/list.html',
       label: 'Prospects',
-      match: (p) => p.startsWith('/prospects/') && !p.endsWith('/prospects/kanban.html'),
+      match: (p) => p.includes('/prospects/') && !p.endsWith('/prospects/kanban.html'),
     },
     {
-      href: '/prospects/kanban.html',
+      path: 'prospects/kanban.html',
       label: 'Prospects Board',
       match: (p) => p.endsWith('/prospects/kanban.html'),
     },
     {
-      href: '/employers/list.html',
+      path: 'employers/list.html',
       label: 'Employers',
-      match: (p) => p.startsWith('/employers/'),
+      match: (p) => p.includes('/employers/'),
     },
     {
-      href: '/jobs/list.html',
+      path: 'jobs/list.html',
       label: 'Jobs',
-      match: (p) => p.startsWith('/jobs/'),
+      match: (p) => p.includes('/jobs/'),
     },
     {
-      href: '/applications/list.html',
+      path: 'applications/list.html',
       label: 'Applications',
-      match: (p) => p.startsWith('/applications/'),
+      match: (p) => p.includes('/applications/'),
     },
     {
-      href: '/interviews/list.html',
+      path: 'interviews/list.html',
       label: 'Interviews',
-      match: (p) => p.startsWith('/interviews/'),
+      match: (p) => p.includes('/interviews/'),
     },
     {
-      href: '/clients/list.html',
+      path: 'clients/list.html',
       label: 'Clients',
-      match: (p) => p.startsWith('/clients/') && !p.endsWith('/clients/kanban.html'),
+      match: (p) => p.includes('/clients/') && !p.endsWith('/clients/kanban.html'),
     },
     {
-      href: '/clients/kanban.html',
+      path: 'clients/kanban.html',
       label: 'Clients Board',
       match: (p) => p.endsWith('/clients/kanban.html'),
     },
     {
-      href: '/payments/list.html',
+      path: 'payments/list.html',
       label: 'Payments',
-      match: (p) => p.startsWith('/payments/'),
+      match: (p) => p.includes('/payments/'),
     },
   ];
   const navLinks = links
     .map((link) => {
-      const isActive = typeof link.match === 'function' ? link.match(path) : path === link.href;
+      const href = resolveAppPath(link.path);
+      const isActive = typeof link.match === 'function' ? link.match(path) : path === href;
       const aria = isActive ? ' aria-current="page"' : '';
-      return `<li class="nav-item"><a class="nav-link${isActive ? ' active' : ''}"${aria} href="${link.href}">${link.label}</a></li>`;
+      return `<li class="nav-item"><a class="nav-link${isActive ? ' active' : ''}"${aria} href="${href}">${link.label}</a></li>`;
     })
     .join('');
   const nav = `
   <nav class="navbar navbar-expand-lg bg-body-tertiary">
     <div class="container-fluid">
-      <a class="navbar-brand" href="/prospects/list.html">OJPMS</a>
+      <a class="navbar-brand" href="${resolveAppPath('prospects/list.html')}">OJPMS</a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -100,12 +138,12 @@ function formatDate(s) {
 function logout() {
   localStorage.removeItem('ojpms_token');
   localStorage.removeItem('ojpms_user');
-  window.location.href = '/index.html';
+  navigateTo('index.html');
 }
 async function requireAuthGuard() {
   const token = localStorage.getItem('ojpms_token');
   if (!token) {
-    window.location.href = '/index.html';
+    navigateTo('index.html');
   }
 }
 function formToJSON(form) {

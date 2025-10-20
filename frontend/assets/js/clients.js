@@ -46,7 +46,7 @@ async function loadClientsList() {
             <div class="small text-muted">Prospect ID: ${client.prospect_id}</div>
             <div class="d-flex justify-content-between align-items-center">
               <span class="small text-muted">Created ${formatDate(client.created_at)}</span>
-              <a class="btn btn-sm btn-outline-primary" href="/clients/details.html?id=${client.id}">View</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
             </div>
           </div>
         </div>`
@@ -133,7 +133,7 @@ async function loadClientsKanban() {
             <div class="small text-muted">Passport: ${client.passport_no || '—'}</div>
             <div class="small text-muted">${formatDate(client.created_at)}</div>
             <div class="mt-2 d-flex gap-2">
-              <a class="btn btn-sm btn-outline-primary" href="/clients/details.html?id=${client.id}">View</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
             </div>
           </div>`
         )
@@ -249,7 +249,7 @@ async function loadClientDetails() {
       try {
         await api.delete(`/clients/${id}`);
         showAlert('alert-box', 'Client deleted.', 'success');
-        setTimeout(() => (window.location.href = '/clients/list.html'), 800);
+        setTimeout(() => navigateTo('clients/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete client', 'danger');
       }

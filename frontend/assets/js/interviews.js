@@ -51,7 +51,7 @@ function renderCalendarGrid(anchorDate, interviews) {
         <div class="title">${iv.prospect_name || 'Prospect #' + iv.prospect_id}</div>
         <div class="meta">${iv.job_title || 'Job #' + (iv.job_id || iv.application_id)} · ${new Date(iv.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
         <div class="meta">${iv.mode || ''}${iv.location ? ' · ' + iv.location : ''}</div>
-        <a class="small" href="/interviews/details.html?id=${iv.id}">Open</a>`;
+        <a class="small" href="${resolveAppPath('interviews/details.html?id=' + iv.id)}">Open</a>`;
       cell.appendChild(div);
     });
     if (!dayInterviews.length) {
@@ -203,7 +203,7 @@ async function loadInterviewDetails() {
       try {
         await api.delete(`/interviews/${id}`);
         showAlert('alert-box', 'Interview deleted.', 'success');
-        setTimeout(() => (window.location.href = '/interviews/list.html'), 800);
+        setTimeout(() => navigateTo('interviews/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete interview', 'danger');
       }

@@ -42,7 +42,7 @@ async function loadProspectsList() {
             <div class="small text-muted">Passport: ${p.passport_no || '—'} · DOB: ${p.dob ? formatDate(p.dob).split(',')[0] : '—'}</div>
             <div class="d-flex justify-content-between align-items-center">
               <span class="small text-muted">Created ${formatDate(p.created_at)}</span>
-              <a class="btn btn-sm btn-outline-primary" href="/prospects/details.html?id=${p.id}">Open</a>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('prospects/details.html?id=' + p.id)}">Open</a>
             </div>
           </div>
         </div>`
@@ -142,7 +142,7 @@ async function loadProspectsKanban() {
             <div class="fw-semibold">${p.full_name}</div>
             <div class="small text-muted">${p.contact_phone || ''}${p.contact_phone && p.contact_email ? ' · ' : ''}${p.contact_email || ''}</div>
             <div class="small text-muted">${formatDate(p.created_at)}</div>
-            <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="/prospects/details.html?id=${p.id}">View</a></div>
+            <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('prospects/details.html?id=' + p.id)}">View</a></div>
           </div>`
         )
         .join('');
@@ -324,7 +324,7 @@ async function loadProspectDetails() {
       try {
         await api.delete(`/prospects/${id}`);
         showAlert('alert-box', 'Prospect deleted.', 'success');
-        setTimeout(() => (window.location.href = '/prospects/list.html'), 800);
+        setTimeout(() => navigateTo('prospects/list.html'), 800);
       } catch (err) {
         showAlert('alert-box', err.response?.data?.message || 'Failed to delete prospect', 'danger');
       }
