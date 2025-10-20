@@ -80,16 +80,6 @@ function renderNavbar() {
       match: (p) => p.endsWith('/clients/kanban.html'),
     },
     {
-      path: 'smartcard-processes/list.html',
-      label: 'SmartCard',
-      match: (p) => p.includes('/smartcard-processes/'),
-    },
-    {
-      path: 'visa-processes/list.html',
-      label: 'Visa',
-      match: (p) => p.includes('/visa-processes/'),
-    },
-    {
       path: 'payments/list.html',
       label: 'Payments',
       match: (p) => p.includes('/payments/'),
