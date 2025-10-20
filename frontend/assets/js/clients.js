@@ -145,34 +145,13 @@ async function loadClientsKanban() {
         onEnd: async (evt) => {
           const id = evt.item.getAttribute('data-id');
           const toStatus = evt.to.getAttribute('data-status');
-          const fromStatus = evt.from.getAttribute('data-status');
-          if (!id || !toStatus || toStatus === fromStatus) return;
-
-          const revert = () => {
-            const reference = evt.from.children[evt.oldIndex] || null;
-            evt.from.insertBefore(evt.item, reference);
-          };
-
-          const name = evt.item.querySelector('.fw-semibold')?.textContent?.trim() || `Client #${id}`;
-          const confirmed = await promptKeywordConfirm({
-            title: 'Confirm client status',
-            messageHtml: `Type <strong>confirm</strong> to move <strong>${escapeHtml(name)}</strong> to <strong>${escapeHtml(clientStatusLabel(toStatus))}</strong>.`,
-            keyword: 'confirm',
-            confirmLabel: 'Confirm',
-          });
-
-          if (!confirmed) {
-            revert();
-            return;
-          }
-
+          if (!id || !toStatus) return;
           try {
             await api.patch(`/clients/${id}/status`, { to_status: toStatus });
-            evt.item.setAttribute('data-status', toStatus);
             showAlert('alert-box', `Client status updated to ${clientStatusLabel(toStatus)}.`, 'success');
           } catch (err) {
-            revert();
             showAlert('alert-box', err.response?.data?.message || 'Failed to update status', 'danger');
+            evt.from.appendChild(evt.item);
           }
         },
       });

@@ -154,40 +154,13 @@ async function loadProspectsKanban() {
       new Sortable(col, {
         group: 'prospects',
         animation: 150,
-        onEnd: async (evt) => {
+        onEnd: (evt) => {
           const id = evt.item.getAttribute('data-id');
           const toStatus = evt.to.getAttribute('data-status');
-          const fromStatus = evt.from.getAttribute('data-status');
-          if (!id || !toStatus || toStatus === fromStatus) {
-            return;
-          }
-
-          const revert = () => {
-            const reference = evt.from.children[evt.oldIndex] || null;
-            evt.from.insertBefore(evt.item, reference);
-          };
-
-          const name = evt.item.querySelector('.fw-semibold')?.textContent?.trim() || `Prospect #${id}`;
-          const confirmed = await promptKeywordConfirm({
-            title: 'Confirm prospect status',
-            messageHtml: `Type <strong>confirm</strong> to move <strong>${escapeHtml(name)}</strong> to <strong>${escapeHtml(prospectStatusLabel(toStatus))}</strong>.`,
-            keyword: 'confirm',
-            confirmLabel: 'Confirm',
-          });
-
-          if (!confirmed) {
-            revert();
-            return;
-          }
-
-          try {
-            await api.patch(`/prospects/${id}/status`, { to_status: toStatus });
-            evt.item.setAttribute('data-status', toStatus);
-            showAlert('alert-box', `Prospect moved to ${prospectStatusLabel(toStatus)}.`, 'success');
-          } catch (err) {
-            revert();
-            showAlert('alert-box', err.response?.data?.message || 'Failed to update status', 'danger');
-          }
+          if (!id || !toStatus) return;
+          // Placeholder for future endpoint GET /prospects/:status and status update persistence
+          // TODO: call PATCH /prospects/${id}/status when backend is available
+          evt.item.setAttribute('data-status', toStatus);
         },
       });
     });

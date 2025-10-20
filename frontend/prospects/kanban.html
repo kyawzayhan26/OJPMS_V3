@@ -23,8 +23,7 @@
           <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#prospectModal">+ Add Prospect</button>
         </div>
       </div>
-      <div id="alert-box"></div>
-      <div class="alert alert-info small">Drag a card into a new stage to request a status change. Type <strong>confirm</strong> in the prompt to apply the move via <code>PATCH /prospects/:id/status</code>.</div>
+      <div class="alert alert-info small">Drag-and-drop is currently visual-only. Status changes will persist once PATCH <code>/prospects/:id/status</code> is available.</div>
       <div class="kanban-wrapper">
         <div class="kanban-row" id="kanban-row">
           <!-- columns injected by JS -->
