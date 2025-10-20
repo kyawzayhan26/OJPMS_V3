@@ -3,66 +3,67 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Applications · OJPMS</title>
+    <title>Clients · OJPMS</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="../assets/css/styles.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <script defer src="../assets/js/utils.js"></script>
     <script defer src="../assets/js/api.js"></script>
     <script defer src="../assets/js/auth.js"></script>
-    <script defer src="../assets/js/applications.js"></script>
+    <script defer src="../assets/js/clients.js"></script>
   </head>
   <body>
     <div id="app-navbar"></div>
     <div class="container py-4">
       <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-        <h1 class="h4 m-0">Applications</h1>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#applicationModal">+ Add Application</button>
+        <h1 class="h4 m-0">Clients</h1>
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary" href="./kanban.html">Kanban Board</a>
+          <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#clientModal">+ Add Client</button>
+        </div>
       </div>
       <div id="alert-box"></div>
       <div class="row g-3 mb-3">
         <div class="col-md-4">
           <label class="form-label">Search</label>
-          <input id="search-input" class="form-control" placeholder="Prospect, job, notes">
+          <input id="search-input" class="form-control" placeholder="Full name, passport, remarks">
         </div>
         <div class="col-md-3">
           <label class="form-label">Status</label>
           <select id="status-filter" class="form-select">
             <option value="">All</option>
-            <option value="Draft">Draft</option>
-            <option value="Submitted">Submitted</option>
-            <option value="Rejected">Rejected</option>
-            <option value="Shortlisted">Shortlisted</option>
+            <option value="SmartCard_InProgress">SmartCard In Progress</option>
+            <option value="Visa_InProgress">Visa In Progress</option>
+            <option value="Payment_Pending">Payment Pending</option>
+            <option value="FlightBooking_Pending">Flight Booking Pending</option>
+            <option value="Accommodation_Pending">Accommodation Pending</option>
+            <option value="Approved_For_Deployment">Approved For Deployment</option>
+            <option value="Departed">Departed</option>
           </select>
         </div>
         <div class="col-md-2">
           <label class="form-label">Prospect ID</label>
           <input id="prospect-filter" class="form-control" type="number" min="1">
         </div>
-        <div class="col-md-2">
-          <label class="form-label">Job ID</label>
-          <input id="job-filter" class="form-control" type="number" min="1">
-        </div>
         <div class="col-md-3">
           <label class="form-label">Sort</label>
           <select id="sort-select" class="form-select">
             <option value="created_at DESC">Newest first</option>
             <option value="created_at ASC">Oldest first</option>
-            <option value="status ASC">Status A → Z</option>
-            <option value="status DESC">Status Z → A</option>
-            <option value="submitted_at DESC">Recently submitted</option>
-            <option value="submitted_at ASC">Earliest submitted</option>
+            <option value="full_name ASC">Name A → Z</option>
+            <option value="full_name DESC">Name Z → A</option>
           </select>
         </div>
       </div>
-      <div class="card-grid" id="apps-list"></div>
+      <div class="card-grid" id="clients-list"></div>
     </div>
 
-    <div class="modal fade" id="applicationModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="clientModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <form class="modal-content" id="application-form">
+        <form class="modal-content" id="client-form">
           <div class="modal-header">
-            <h5 class="modal-title">Add Application</h5>
+            <h5 class="modal-title">Add Client</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
           </div>
           <div class="modal-body">
@@ -72,32 +73,35 @@
                 <label class="form-label">Prospect ID</label>
                 <input class="form-control" name="prospect_id" type="number" min="1" required>
               </div>
-              <div class="col-md-4">
-                <label class="form-label">Job ID</label>
-                <input class="form-control" name="job_id" type="number" min="1" required>
-              </div>
-              <div class="col-md-4">
-                <label class="form-label">Status</label>
-                <select class="form-select" name="status">
-                  <option value="Draft">Draft</option>
-                  <option value="Submitted">Submitted</option>
-                  <option value="Rejected">Rejected</option>
-                  <option value="Shortlisted">Shortlisted</option>
-                </select>
+              <div class="col-md-8">
+                <label class="form-label">Full name</label>
+                <input class="form-control" name="full_name" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label">Employer response date</label>
-                <input type="date" class="form-control" name="employer_response_at">
+                <label class="form-label">Passport number</label>
+                <input class="form-control" name="passport_no">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                  <option value="SmartCard_InProgress">SmartCard In Progress</option>
+                  <option value="Visa_InProgress">Visa In Progress</option>
+                  <option value="Payment_Pending">Payment Pending</option>
+                  <option value="FlightBooking_Pending">Flight Booking Pending</option>
+                  <option value="Accommodation_Pending">Accommodation Pending</option>
+                  <option value="Approved_For_Deployment">Approved For Deployment</option>
+                  <option value="Departed">Departed</option>
+                </select>
               </div>
               <div class="col-12">
-                <label class="form-label">Notes</label>
-                <textarea class="form-control" rows="3" name="notes"></textarea>
+                <label class="form-label">Remarks</label>
+                <textarea class="form-control" rows="3" name="remarks1"></textarea>
               </div>
             </div>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Application</button>
+            <button type="submit" class="btn btn-primary">Save Client</button>
           </div>
         </form>
       </div>
@@ -107,9 +111,9 @@
       document.addEventListener('DOMContentLoaded', async () => {
         renderNavbar();
         await requireAuthGuard();
-        setupApplicationFilters();
-        initApplicationForm();
-        loadApplicationsList();
+        setupClientFilters();
+        initClientForm();
+        loadClientsList();
       });
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
