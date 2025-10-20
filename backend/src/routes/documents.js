@@ -9,6 +9,20 @@ import { requireAuth, can } from '../middleware/auth.js';
 import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { uploadSingleDocument, resolvePublicPath } from '../middleware/upload.js';
+import { likeParam } from '../utils/search.js';
+
+const DOCUMENT_TYPES = [
+  'Passport',
+  'Photo',
+  'EducationCert',
+  'MedicalCheck',
+  'PoliceClearance',
+  'SmartCardForm',
+  'VisaForm',
+  'Other',
+];
+
+const DOCUMENT_STATUSES = ['Pending', 'Uploaded', 'Verified', 'Rejected', 'Expired'];
 
 const router = Router();
 
@@ -18,6 +32,9 @@ const router = Router();
  * Filters:
  *   ?client_id=123
  *   ?prospect_id=456   (via Clients table)
+ *   ?type=SmartCardForm[,VisaForm]
+ *   ?status=Uploaded
+ *   ?search=keyword
  * (No pagination by design — small per-client/prospect sets)
  */
 router.get(
@@ -26,21 +43,73 @@ router.get(
   can('documents:read'),
   query('client_id').optional().isInt({ min: 1 }).toInt(),
   query('prospect_id').optional().isInt({ min: 1 }).toInt(),
+  query('search').optional().isString(),
+  query('status').optional().isIn(DOCUMENT_STATUSES),
+  query('type')
+    .optional()
+    .customSanitizer((value) => {
+      if (Array.isArray(value)) {
+        return value
+          .map((v) => (typeof v === 'string' ? v.trim() : ''))
+          .filter(Boolean);
+      }
+      if (typeof value === 'string' && value.includes(',')) {
+        return value
+          .split(',')
+          .map((v) => v.trim())
+          .filter(Boolean);
+      }
+      return value ? [String(value).trim()] : [];
+    })
+    .custom((value) => {
+      if (!value || !value.length) return true;
+      const invalid = value.find((v) => !DOCUMENT_TYPES.includes(v));
+      if (invalid) throw new Error('Invalid document type');
+      return true;
+    }),
   handleValidation,
   async (req, res, next) => {
     try {
-      const { client_id = null, prospect_id = null } = req.query;
+      const {
+        client_id = null,
+        prospect_id = null,
+        search = '',
+        status = null,
+        type: typeParam = [],
+      } = req.query;
 
-      // Build WHERE clause safely with parameterized inputs
+      const types = Array.isArray(typeParam) ? typeParam : [];
+
       const where = ['d.isDeleted = 0'];
       if (client_id !== null) where.push('d.client_id = @client_id');
       if (prospect_id !== null) where.push('c.prospect_id = @prospect_id');
+      if (status) where.push('d.status = @status');
+
+      if (types.length === 1) {
+        where.push('d.type = @type0');
+      } else if (types.length > 1) {
+        const placeholders = types.map((_, idx) => `@type${idx}`).join(', ');
+        where.push(`d.type IN (${placeholders})`);
+      }
+
+      const q = likeParam(search || '');
+      where.push(`(
+        @q = '%%'
+        OR p.full_name LIKE @q
+        OR c.full_name LIKE @q
+        OR c.passport_no LIKE @q
+        OR CAST(d.id AS NVARCHAR(50)) LIKE @q
+        OR d.remarks LIKE @q
+        OR d.type LIKE @q
+        OR d.status LIKE @q
+      )`);
 
       const sql = `
         SELECT
           d.*,
+          c.full_name   AS client_name,
           c.prospect_id,
-          p.full_name AS prospect_name
+          p.full_name   AS prospect_name
         FROM Documents d
         LEFT JOIN Clients   c ON c.id = d.client_id
         LEFT JOIN Prospects p ON p.id = c.prospect_id
@@ -49,8 +118,13 @@ router.get(
       `;
 
       const reqDb = getPool().request();
-      if (client_id !== null)   reqDb.input('client_id', client_id);
+      if (client_id !== null) reqDb.input('client_id', client_id);
       if (prospect_id !== null) reqDb.input('prospect_id', prospect_id);
+      reqDb.input('q', q);
+      if (status) reqDb.input('status', status);
+      types.forEach((t, idx) => {
+        reqDb.input(`type${idx}`, t);
+      });
 
       const result = await reqDb.query(sql);
       res.json({ rows: result.recordset });
@@ -82,17 +156,8 @@ router.post(
   // 3) Now body validators see parsed fields
   body('type')
     .trim()
-    .customSanitizer(v => (v || '').trim())
-    .isIn([
-      'Passport',
-      'Photo',
-      'EducationCert',
-      'MedicalCheck',
-      'PoliceClearance',
-      'SmartCardForm',
-      'VisaForm',
-      'Other',
-    ]),
+    .customSanitizer((v) => (v || '').trim())
+    .isIn(DOCUMENT_TYPES),
   body('remarks').optional().isString().trim(),
   handleValidation,
 
@@ -174,13 +239,48 @@ router.get('/files/*', requireAuth, can('documents:read'), async (req, res, next
   } catch (e) { next(e); }
 });
 
+// GET single document by id (joined with client + prospect context)
+router.get(
+  '/:id',
+  requireAuth,
+  can('documents:read'),
+  param('id').isInt({ min: 1 }).toInt(),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = +req.params.id;
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT
+            d.*,
+            c.full_name   AS client_name,
+            c.prospect_id,
+            p.full_name   AS prospect_name
+          FROM Documents d
+          LEFT JOIN Clients   c ON c.id = d.client_id
+          LEFT JOIN Prospects p ON p.id = c.prospect_id
+          WHERE d.id = @id AND d.isDeleted = 0;
+        `);
+
+      const row = result.recordset[0];
+      if (!row) {
+        return res.status(404).json({ error: { code: 'not_found', message: 'Document not found' }, requestId: req.id });
+      }
+
+      res.json(row);
+    } catch (err) { next(err); }
+  }
+);
+
 // UPDATE document (status / file_url / remarks)
 router.patch(
   '/:id',
   requireAuth,
   can('documents:write'),
   param('id').isInt({ min: 1 }).toInt(),
-  body('status').optional().isIn(['Pending', 'Uploaded', 'Verified', 'Rejected', 'Expired']),
+  body('status').optional().isIn(DOCUMENT_STATUSES),
   body('file_url').optional().isString(),
   body('remarks').optional().isString(),
   handleValidation,
@@ -201,7 +301,15 @@ router.patch(
                  remarks  = COALESCE(@remarks, remarks)
            WHERE id=@id AND isDeleted=0;
 
-          SELECT * FROM Documents WHERE id=@id;
+          SELECT
+            d.*,
+            c.full_name   AS client_name,
+            c.prospect_id,
+            p.full_name   AS prospect_name
+          FROM Documents d
+          LEFT JOIN Clients   c ON c.id = d.client_id
+          LEFT JOIN Prospects p ON p.id = c.prospect_id
+          WHERE d.id=@id;
         `);
 
       const row = result.recordset[0];
