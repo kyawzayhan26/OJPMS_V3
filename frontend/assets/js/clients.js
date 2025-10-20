@@ -20,7 +20,7 @@ async function loadClientsList() {
     const search = document.getElementById('search-input')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
     const prospect = document.getElementById('prospect-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
       status: status || undefined,
@@ -115,7 +115,7 @@ async function loadClientsKanban() {
     )
     .join('');
   try {
-    const res = await api.get('/clients', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const buckets = Object.fromEntries(CLIENT_STATUSES.map((s) => [s, []]));
     rows.forEach((client) => {
@@ -199,7 +199,7 @@ async function loadClientDetails() {
   };
 
   try {
-    const res = await api.get('/clients', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const client = rows.find((c) => String(c.id) === String(id));
     if (!client) {

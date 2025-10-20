@@ -20,8 +20,8 @@ async function loadProspectsList() {
   try {
     const search = document.getElementById('search-input')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
-    const limit = +(document.getElementById('limit-select')?.value || 50);
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
+    const limit = Math.min(+(document.getElementById('limit-select')?.value || 50), 100);
     const res = await api.get('/prospects', {
       params: { search: search || undefined, limit, page: 1, sort },
     });
@@ -125,7 +125,7 @@ async function loadProspectsKanban() {
     )
     .join('');
   try {
-    const res = await api.get('/prospects', { params: { limit: 200, page: 1, sort: 'created_at DESC' } });
+    const res = await api.get('/prospects', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const buckets = Object.fromEntries(PROSPECT_STATUSES.map((s) => [s, []]));
     rows.forEach((p) => {
@@ -214,7 +214,7 @@ async function loadProspectDetails() {
   };
 
   try {
-    const res = await api.get('/prospects', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/prospects', { params: { limit: 100, page: 1 } });
     const rows = res.data?.rows || [];
     const prospect = rows.find((p) => String(p.id) === String(id));
     if (!prospect) {
@@ -239,7 +239,7 @@ async function loadProspectDetails() {
     const jobsList = document.getElementById('prospect-jobs');
     if (jobsList) {
       try {
-        const jobsRes = await api.get('/jobs', { params: { limit: 200 } });
+        const jobsRes = await api.get('/jobs', { params: { limit: 100 } });
         const jobs = jobsRes.data?.rows || [];
         if (prospect.interested_job_id) {
           const match = jobs.find((j) => j.id === prospect.interested_job_id);
@@ -257,7 +257,7 @@ async function loadProspectDetails() {
     const applicationsList = document.getElementById('prospect-applications');
     if (applicationsList) {
       try {
-        const appsRes = await api.get('/applications', { params: { limit: 200 } });
+        const appsRes = await api.get('/applications', { params: { limit: 100 } });
         const apps = (appsRes.data?.rows || []).filter((a) => String(a.prospect_id) === String(id));
         applicationsList.innerHTML = apps
           .map(
@@ -275,7 +275,7 @@ async function loadProspectDetails() {
     const interviewsList = document.getElementById('prospect-interviews');
     if (interviewsList) {
       try {
-        const ivRes = await api.get('/interviews', { params: { limit: 200 } });
+        const ivRes = await api.get('/interviews', { params: { limit: 100 } });
         const interviews = (ivRes.data?.rows || []).filter((i) => String(i.prospect_id) === String(id));
         interviewsList.innerHTML = interviews
           .map(

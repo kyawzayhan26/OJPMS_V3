@@ -20,7 +20,7 @@ async function loadPaymentsList() {
     const status = document.getElementById('status-filter')?.value || '';
     const clientId = document.getElementById('client-filter')?.value || '';
     const currency = document.getElementById('currency-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
       status: status || undefined,
@@ -124,7 +124,7 @@ async function loadPaymentDetails() {
   };
 
   try {
-    const res = await api.get('/payments', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/payments', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const payment = rows.find((p) => String(p.id) === String(id));
     if (!payment) {

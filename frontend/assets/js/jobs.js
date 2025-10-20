@@ -11,7 +11,7 @@ async function loadJobsList() {
     const employerId = document.getElementById('employer-filter')?.value || '';
     const country = document.getElementById('country-filter')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
       employer_id: employerId || undefined,
@@ -132,7 +132,7 @@ async function loadJobDetails() {
   };
 
   try {
-    const res = await api.get('/jobs', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/jobs', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const job = rows.find((j) => String(j.id) === String(id));
     if (!job) {

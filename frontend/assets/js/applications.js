@@ -9,7 +9,7 @@ async function loadApplicationsList() {
     const status = document.getElementById('status-filter')?.value || '';
     const prospectId = document.getElementById('prospect-filter')?.value || '';
     const jobId = document.getElementById('job-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
       status: status || undefined,
@@ -125,7 +125,7 @@ async function loadApplicationDetails() {
   };
 
   try {
-    const res = await api.get('/applications', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/applications', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const application = rows.find((a) => String(a.id) === String(id));
     if (!application) {

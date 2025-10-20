@@ -27,7 +27,7 @@ async function loadEmployersList() {
   try {
     const search = document.getElementById('search-input')?.value || '';
     const country = document.getElementById('country-filter')?.value || '';
-    const sort = document.getElementById('sort-select')?.value || 'created_at DESC';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const res = await api.get('/employers', {
       params: {
         search: search || undefined,
@@ -125,7 +125,7 @@ async function loadEmployerDetails() {
   };
 
   try {
-    const res = await api.get('/employers', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/employers', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const employer = rows.find((e) => String(e.id) === String(id));
     if (!employer) {

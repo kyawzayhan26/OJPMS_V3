@@ -73,9 +73,9 @@ async function loadInterviewsCalendar() {
   const params = {
     from: start.toISOString(),
     to: end.toISOString(),
-    limit: 200,
+    limit: 100,
     page: 1,
-    sort: 'scheduled_time ASC',
+    sort: 'scheduled_time:asc',
   };
   try {
     const res = await api.get('/interviews', { params });
@@ -156,7 +156,7 @@ async function loadInterviewDetails() {
   };
 
   try {
-    const res = await api.get('/interviews', { params: { limit: 200, page: 1 } });
+    const res = await api.get('/interviews', { params: { limit: 100, page: 1, sort: 'scheduled_time:desc' } });
     const rows = res.data?.rows || [];
     const interview = rows.find((i) => String(i.id) === String(id));
     if (!interview) {
