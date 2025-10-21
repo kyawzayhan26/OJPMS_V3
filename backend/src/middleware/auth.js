@@ -47,6 +47,18 @@ export const PERMISSIONS = {
   // Payments (usually restricted)
   'payments:read':    [Roles.Admin, Roles.Staff],
   'payments:write':   [Roles.Admin],                // only Admin can create/update payments
+
+  // Prospect job matches
+  'prospectJobMatches:read':  [Roles.Admin, Roles.Staff],
+  'prospectJobMatches:write': [Roles.Admin, Roles.Staff],
+
+  // Visa applications
+  'visaApplications:read':    [Roles.Admin, Roles.Staff],
+  'visaApplications:write':   [Roles.Admin, Roles.Staff],
+
+  // SmartCard applications
+  'smartCardApplications:read':  [Roles.Admin, Roles.Staff],
+  'smartCardApplications:write': [Roles.Admin, Roles.Staff],
 };
 
 /**
