@@ -8,6 +8,8 @@ const PROSPECT_STATUSES = [
   'interview_passed',
 ];
 
+const prospectCache = new Map();
+
 function prospectStatusLabel(status) {
   return (status || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) || 'Enquiry';
 }
@@ -124,14 +126,20 @@ async function loadProspectsKanban() {
       </div>`
     )
     .join('');
+
+  prospectCache.clear();
+
   try {
     const res = await api.get('/prospects', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const buckets = Object.fromEntries(PROSPECT_STATUSES.map((s) => [s, []]));
+
     rows.forEach((p) => {
+      prospectCache.set(p.id, p);
       const status = PROSPECT_STATUSES.includes(p.status) ? p.status : 'enquiry';
       buckets[status].push(p);
     });
+
     PROSPECT_STATUSES.forEach((status) => {
       const col = document.getElementById(`col-${status}`);
       if (!col) return;
@@ -139,8 +147,8 @@ async function loadProspectsKanban() {
         .map(
           (p) => `
           <div class="kanban-card mb-2" data-id="${p.id}">
-            <div class="fw-semibold">${p.full_name}</div>
-            <div class="small text-muted">${p.contact_phone || ''}${p.contact_phone && p.contact_email ? ' · ' : ''}${p.contact_email || ''}</div>
+            <div class="fw-semibold">${escapeHtml(p.full_name || `Prospect #${p.id}`)}</div>
+            <div class="small text-muted">${escapeHtml(p.contact_phone || '')}${p.contact_phone && p.contact_email ? ' · ' : ''}${escapeHtml(p.contact_email || '')}</div>
             <div class="small text-muted">${formatDate(p.created_at)}</div>
             <div class="mt-2"><a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('prospects/details.html?id=' + p.id)}">View</a></div>
           </div>`
@@ -155,12 +163,9 @@ async function loadProspectsKanban() {
         group: 'prospects',
         animation: 150,
         onEnd: (evt) => {
-          const id = evt.item.getAttribute('data-id');
-          const toStatus = evt.to.getAttribute('data-status');
-          if (!id || !toStatus) return;
-          // Placeholder for future endpoint GET /prospects/:status and status update persistence
-          // TODO: call PATCH /prospects/${id}/status when backend is available
-          evt.item.setAttribute('data-status', toStatus);
+          handleProspectDrop(evt).catch((error) => {
+            console.error('Failed to handle prospect drop', error);
+          });
         },
       });
     });
@@ -169,8 +174,561 @@ async function loadProspectsKanban() {
       const col = document.getElementById(`col-${status}`);
       if (col) col.innerHTML = '<div class="text-danger">Failed to load.</div>';
     });
+    showAlert('alert-box', err.response?.data?.message || 'Unable to load prospects', 'danger');
   }
+
   initProspectCreateForm();
+}
+
+function prospectStatusIndex(status) {
+  return PROSPECT_STATUSES.indexOf(status);
+}
+
+async function fetchCurrentJobMatch(prospectId) {
+  try {
+    const res = await api.get('/prospect-job-matches', {
+      params: {
+        prospect_id: prospectId,
+        is_current: true,
+        limit: 1,
+        page: 1,
+        sort: 'updated_at:desc',
+      },
+    });
+    return res.data?.rows?.[0] || null;
+  } catch (err) {
+    console.error('Failed to fetch job match', err);
+    return null;
+  }
+}
+
+async function fetchLatestApplication(prospectId, status) {
+  try {
+    const res = await api.get('/applications', {
+      params: {
+        prospect_id: prospectId,
+        status,
+        limit: 1,
+        page: 1,
+        sort: 'updated_at:desc',
+      },
+    });
+    return res.data?.rows?.[0] || null;
+  } catch (err) {
+    console.error('Failed to fetch application', err);
+    return null;
+  }
+}
+
+async function fetchPendingInterview(prospectId) {
+  try {
+    const res = await api.get('/interviews', {
+      params: {
+        prospect_id: prospectId,
+        outcome: 'Pending',
+        limit: 1,
+        page: 1,
+        sort: 'scheduled_time:desc',
+      },
+    });
+    return res.data?.rows?.[0] || null;
+  } catch (err) {
+    console.error('Failed to fetch interview', err);
+    return null;
+  }
+}
+
+async function fetchJobById(jobId) {
+  if (!jobId) return null;
+  try {
+    const res = await api.get(`/jobs/${jobId}`);
+    return res.data || null;
+  } catch (err) {
+    console.error('Failed to fetch job', err);
+    return null;
+  }
+}
+
+function jobLabel(matchOrApplication) {
+  if (!matchOrApplication) return 'Job';
+  return matchOrApplication.job_title || `Job #${matchOrApplication.job_id || ''}`;
+}
+
+function openJobMatchModal(prospect) {
+  const modalEl = document.getElementById('jobMatchModal');
+  if (!modalEl) return Promise.resolve(null);
+  const form = modalEl.querySelector('#job-match-form');
+  const alertBox = document.getElementById('job-match-alert');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      const jobId = Number(data.job_id);
+      if (!Number.isInteger(jobId) || jobId <= 0) {
+        showAlert('job-match-alert', 'Please enter a valid job ID.', 'danger');
+        return;
+      }
+      const rationale = (data.rationale || '').trim();
+      if (!rationale) {
+        showAlert('job-match-alert', 'Please provide a rationale for the match.', 'danger');
+        return;
+      }
+      cleanup();
+      modal.hide();
+      resolve({ job_id: jobId, rationale });
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    form.prospect_id.value = prospect.id;
+    form.prospect_name.value = prospect.full_name || `Prospect #${prospect.id}`;
+
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
+  });
+}
+
+function openApplicationDraftModal(prospect, match) {
+  const modalEl = document.getElementById('applicationDraftModal');
+  if (!modalEl) return Promise.resolve(null);
+  const form = modalEl.querySelector('#application-draft-form');
+  const alertBox = document.getElementById('application-draft-alert');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      cleanup();
+      modal.hide();
+      resolve({ notes: (data.notes || '').trim() });
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    form.prospect_id.value = prospect.id;
+    form.job_id.value = match.job_id;
+    form.prospect_name.value = prospect.full_name || `Prospect #${prospect.id}`;
+    form.job_label.value = jobLabel(match);
+    if (form.status) form.status.value = 'Draft';
+    if (form.employer_response_at) form.employer_response_at.value = '';
+
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
+  });
+}
+
+function openConfirmModal({ title, message, confirmLabel = 'Confirm', requireKeyword = null, keywordLabel = null }) {
+  const modalEl = document.getElementById('confirmModal');
+  if (!modalEl) return Promise.resolve(false);
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const titleEl = document.getElementById('confirm-modal-title');
+  const messageEl = document.getElementById('confirm-modal-message');
+  const alertBox = document.getElementById('confirm-modal-alert');
+  const confirmBtn = document.getElementById('confirm-modal-button');
+  const inputGroup = document.getElementById('confirm-modal-input-group');
+  const inputField = document.getElementById('confirm-modal-input');
+  const inputLabel = document.getElementById('confirm-modal-input-label');
+  const inputHelp = document.getElementById('confirm-modal-input-help');
+
+  return new Promise((resolve) => {
+    let resolved = false;
+
+    const cleanup = () => {
+      confirmBtn.removeEventListener('click', onConfirm);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onConfirm = () => {
+      if (requireKeyword) {
+        const expected = requireKeyword.toString().trim().toLowerCase();
+        const actual = (inputField?.value || '').trim().toLowerCase();
+        if (!actual || actual !== expected) {
+          if (alertBox) {
+            alertBox.innerHTML = `<div class="alert alert-danger">Please type "${escapeHtml(requireKeyword)}" to confirm.</div>`;
+          }
+          if (inputField) {
+            inputField.focus();
+            inputField.select();
+          }
+          return;
+        }
+      }
+      resolved = true;
+      cleanup();
+      modal.hide();
+      resolve(true);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      if (!resolved) resolve(false);
+    };
+
+    if (titleEl) titleEl.textContent = title;
+    if (messageEl) messageEl.innerHTML = message;
+    if (alertBox) alertBox.innerHTML = '';
+    if (confirmBtn) confirmBtn.textContent = confirmLabel;
+
+    if (inputGroup) {
+      if (requireKeyword) {
+        inputGroup.classList.remove('d-none');
+        if (inputLabel) inputLabel.textContent = keywordLabel || `Type "${requireKeyword}" to continue`;
+        if (inputHelp) inputHelp.textContent = 'Confirmation is required to apply this change.';
+        if (inputField) {
+          inputField.value = '';
+          setTimeout(() => inputField.focus(), 150);
+        }
+      } else {
+        inputGroup.classList.add('d-none');
+        if (inputField) inputField.value = '';
+      }
+    }
+
+    confirmBtn.addEventListener('click', onConfirm);
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    modal.show();
+  });
+}
+
+function openInterviewScheduleModal(prospect, application) {
+  const modalEl = document.getElementById('interviewScheduleModal');
+  if (!modalEl) return Promise.resolve(null);
+  const form = modalEl.querySelector('#interview-schedule-form');
+  const alertBox = document.getElementById('interview-schedule-alert');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  const now = new Date();
+  const localISO = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      if (!data.scheduled_time) {
+        showAlert('interview-schedule-alert', 'Please choose a scheduled time.', 'danger');
+        return;
+      }
+      const iso = new Date(data.scheduled_time).toISOString();
+      cleanup();
+      modal.hide();
+      resolve({
+        scheduled_time: iso,
+        mode: data.mode ? data.mode.trim() || null : null,
+        location: data.location ? data.location.trim() || null : null,
+      });
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    form.prospect_id.value = prospect.id;
+    form.application_id.value = application.id;
+    form.prospect_name.value = prospect.full_name || `Prospect #${prospect.id}`;
+    form.application_label.value = jobLabel(application);
+    form.scheduled_time.value = localISO;
+
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
+  });
+}
+
+function openInterviewOutcomeModal(prospect, interview) {
+  const modalEl = document.getElementById('interviewOutcomeModal');
+  if (!modalEl) return Promise.resolve(null);
+  const form = modalEl.querySelector('#interview-outcome-form');
+  const alertBox = document.getElementById('interview-outcome-alert');
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      cleanup();
+      modal.hide();
+      resolve({ outcome_notes: (data.outcome_notes || '').trim() });
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    form.prospect_id.value = prospect.id;
+    form.interview_id.value = interview.id || '';
+
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
+  });
+}
+
+async function handleProspectDrop(evt) {
+  const id = Number(evt.item.getAttribute('data-id'));
+  const toStatus = evt.to.getAttribute('data-status');
+  const fromStatus = evt.from.getAttribute('data-status');
+
+  if (!id || !toStatus || toStatus === fromStatus) {
+    return;
+  }
+
+  const revert = () => {
+    const reference = evt.from.children[evt.oldIndex] || null;
+    evt.from.insertBefore(evt.item, reference);
+  };
+
+  const fromIndex = prospectStatusIndex(fromStatus);
+  const toIndex = prospectStatusIndex(toStatus);
+
+  if (fromIndex === -1 || toIndex === -1) {
+    revert();
+    showAlert('alert-box', 'Unsupported status change.', 'danger');
+    return;
+  }
+
+  if (toIndex <= fromIndex) {
+    revert();
+    showAlert('alert-box', 'You can only move prospects forward in the pipeline.', 'warning');
+    return;
+  }
+
+  if (toIndex - fromIndex > 1) {
+    revert();
+    showAlert('alert-box', 'Please progress through the stages one step at a time.', 'warning');
+    return;
+  }
+
+  const prospect = prospectCache.get(id);
+  if (!prospect) {
+    revert();
+    showAlert('alert-box', 'Prospect data unavailable. Please refresh.', 'danger');
+    return;
+  }
+
+  const transitionKey = `${fromStatus}->${toStatus}`;
+  const payload = { to_status: toStatus };
+  let successMessage = `Prospect moved to ${prospectStatusLabel(toStatus)}.`;
+
+  try {
+    switch (transitionKey) {
+      case 'enquiry->job_matched': {
+        const result = await openJobMatchModal(prospect);
+        if (!result) {
+          revert();
+          return;
+        }
+        try {
+          const createRes = await api.post('/prospect-job-matches', {
+            prospect_id: id,
+            job_id: result.job_id,
+            rationale: result.rationale,
+            is_current: true,
+          });
+          const match = createRes.data;
+          payload.match_id = match.id;
+          payload.job_id = match.job_id;
+          payload.rationale = result.rationale;
+          payload.remarks = result.rationale;
+          successMessage = 'Job match created and prospect updated.';
+        } catch (err) {
+          revert();
+          showAlert('alert-box', err.response?.data?.message || 'Failed to create job match', 'danger');
+          return;
+        }
+        break;
+      }
+      case 'job_matched->jobmatch_approved': {
+        if ((getUserRole() || '').toLowerCase() !== 'admin') {
+          revert();
+          showAlert('alert-box', 'Forbidden: only administrators can approve job matches.', 'danger');
+          return;
+        }
+        const confirmed = await openConfirmModal({
+          title: 'Approve Job Match',
+          message: `Approve the current job match for <strong>${escapeHtml(prospect.full_name || `Prospect #${prospect.id}`)}</strong>?`,
+          confirmLabel: 'Approve',
+          requireKeyword: 'confirm',
+          keywordLabel: 'Type "confirm" to approve the job match',
+        });
+        if (!confirmed) {
+          revert();
+          return;
+        }
+        payload.remarks = 'Job match approved.';
+        successMessage = 'Job match approved.';
+        break;
+      }
+      case 'jobmatch_approved->application_drafted': {
+        const match = await fetchCurrentJobMatch(id);
+        if (!match || (match.status && match.status !== 'approved')) {
+          revert();
+          showAlert('alert-box', 'No approved job match available for this prospect.', 'danger');
+          return;
+        }
+        const result = await openApplicationDraftModal(prospect, match);
+        if (!result) {
+          revert();
+          return;
+        }
+        try {
+          const createRes = await api.post('/applications', {
+            prospect_id: id,
+            job_id: match.job_id,
+            status: 'Draft',
+            notes: result.notes || null,
+          });
+          const application = createRes.data;
+          payload.application_id = application.id;
+          payload.notes = result.notes || null;
+          payload.remarks = result.notes || 'Application draft created.';
+          successMessage = 'Application draft created.';
+        } catch (err) {
+          revert();
+          showAlert('alert-box', err.response?.data?.message || 'Failed to create application draft', 'danger');
+          return;
+        }
+        break;
+      }
+      case 'application_drafted->application_submitted': {
+        const draft = await fetchLatestApplication(id, 'Draft');
+        if (!draft) {
+          revert();
+          showAlert('alert-box', 'No draft application found to submit.', 'danger');
+          return;
+        }
+        const confirmed = await openConfirmModal({
+          title: 'Submit Application',
+          message: `Submit the application for <strong>${escapeHtml(prospect.full_name || `Prospect #${prospect.id}`)}</strong> (${escapeHtml(jobLabel(draft))})?`,
+          confirmLabel: 'Submit',
+          requireKeyword: 'confirm',
+          keywordLabel: 'Type "confirm" to submit the application',
+        });
+        if (!confirmed) {
+          revert();
+          return;
+        }
+        payload.application_id = draft.id;
+        payload.remarks = 'Application submitted.';
+        successMessage = 'Application submitted.';
+        break;
+      }
+      case 'application_submitted->interview_scheduled': {
+        const submitted = await fetchLatestApplication(id, 'Submitted');
+        if (!submitted) {
+          revert();
+          showAlert('alert-box', 'No submitted application ready for scheduling.', 'danger');
+          return;
+        }
+        const result = await openInterviewScheduleModal(prospect, submitted);
+        if (!result) {
+          revert();
+          return;
+        }
+        const job = await fetchJobById(submitted.job_id);
+        if (!job) {
+          revert();
+          showAlert('alert-box', 'Unable to load job details for interview scheduling.', 'danger');
+          return;
+        }
+        try {
+          const createRes = await api.post('/interviews', {
+            prospect_id: id,
+            application_id: submitted.id,
+            employer_id: job.employer_id,
+            scheduled_time: result.scheduled_time,
+            mode: result.mode || null,
+            location: result.location || null,
+          });
+          const interview = createRes.data;
+          payload.application_id = submitted.id;
+          payload.interview_id = interview.id;
+          payload.remarks = `Interview scheduled for ${formatDate(result.scheduled_time)}.`;
+          successMessage = 'Interview scheduled.';
+        } catch (err) {
+          revert();
+          showAlert('alert-box', err.response?.data?.message || 'Failed to schedule interview', 'danger');
+          return;
+        }
+        break;
+      }
+      case 'interview_scheduled->interview_passed': {
+        const interview = await fetchPendingInterview(id);
+        if (!interview) {
+          revert();
+          showAlert('alert-box', 'No pending interview found for this prospect.', 'danger');
+          return;
+        }
+        const result = await openInterviewOutcomeModal(prospect, interview);
+        if (!result) {
+          revert();
+          return;
+        }
+        payload.interview_id = interview.id;
+        payload.outcome_notes = result.outcome_notes || null;
+        payload.remarks = result.outcome_notes ? result.outcome_notes : 'Interview marked as passed.';
+        successMessage = 'Interview marked as passed.';
+        break;
+      }
+      default:
+        revert();
+        showAlert('alert-box', 'This transition is not supported yet.', 'danger');
+        return;
+    }
+
+    await api.patch(`/prospects/${id}/status`, payload);
+    showAlert('alert-box', successMessage, 'success');
+    await loadProspectsKanban();
+  } catch (err) {
+    revert();
+    showAlert('alert-box', err.response?.data?.message || 'Failed to update status', 'danger');
+  }
 }
 
 async function loadProspectDetails() {

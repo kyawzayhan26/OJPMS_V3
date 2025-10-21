@@ -23,7 +23,8 @@
           <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#prospectModal">+ Add Prospect</button>
         </div>
       </div>
-      <div class="alert alert-info small">Drag-and-drop is currently visual-only. Status changes will persist once PATCH <code>/prospects/:id/status</code> is available.</div>
+      <div id="alert-box"></div>
+      <div class="alert alert-info small">Drag a card forward to progress the prospect. You'll be prompted to provide the details required for each stage.</div>
       <div class="kanban-wrapper">
         <div class="kanban-row" id="kanban-row">
           <!-- columns injected by JS -->
@@ -98,6 +99,168 @@
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary">Save Prospect</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="jobMatchModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="job-match-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Job Match</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="job-match-alert"></div>
+            <input type="hidden" name="prospect_id">
+            <div class="mb-3">
+              <label class="form-label">Prospect</label>
+              <input name="prospect_name" class="form-control" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Interested Job ID</label>
+              <input name="job_id" type="number" min="1" class="form-control" required>
+            </div>
+            <div class="mb-0">
+              <label class="form-label">Rationale</label>
+              <textarea name="rationale" class="form-control" rows="3" placeholder="Why is this job a good match?" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Match</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="applicationDraftModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <form class="modal-content" id="application-draft-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Application Draft</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="application-draft-alert"></div>
+            <input type="hidden" name="prospect_id">
+            <input type="hidden" name="job_id">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Prospect</label>
+                <input name="prospect_name" class="form-control" readonly>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Job</label>
+                <input name="job_label" class="form-control" readonly>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Status</label>
+                <input name="status" class="form-control" value="Draft" readonly>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Employer response date</label>
+                <input name="employer_response_at" class="form-control" value="" placeholder="Will remain blank" readonly>
+              </div>
+            </div>
+            <div class="mt-3">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" class="form-control" rows="4" placeholder="Add context for the application"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Draft</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="confirm-modal-title">Confirm</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="confirm-modal-alert"></div>
+            <p class="mb-0" id="confirm-modal-message"></p>
+            <div class="mt-3 d-none" id="confirm-modal-input-group">
+              <label class="form-label" for="confirm-modal-input" id="confirm-modal-input-label"></label>
+              <input type="text" id="confirm-modal-input" class="form-control" autocomplete="off">
+              <div class="form-text" id="confirm-modal-input-help"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="confirm-modal-button">Confirm</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal fade" id="interviewScheduleModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="interview-schedule-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Schedule Interview</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="interview-schedule-alert"></div>
+            <input type="hidden" name="prospect_id">
+            <input type="hidden" name="application_id">
+            <div class="mb-3">
+              <label class="form-label">Prospect</label>
+              <input name="prospect_name" class="form-control" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Application</label>
+              <input name="application_label" class="form-control" readonly>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Scheduled Time</label>
+              <input type="datetime-local" name="scheduled_time" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Mode</label>
+              <input name="mode" class="form-control" placeholder="e.g. Video call">
+            </div>
+            <div class="mb-0">
+              <label class="form-label">Location / Link</label>
+              <input name="location" class="form-control" placeholder="Enter meeting location or link">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Schedule</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="interviewOutcomeModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="interview-outcome-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Record Interview Outcome</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="interview-outcome-alert"></div>
+            <input type="hidden" name="prospect_id">
+            <input type="hidden" name="interview_id">
+            <p class="small text-muted">Outcome will be recorded as <strong>Pass</strong>.</p>
+            <div>
+              <label class="form-label">Outcome Notes</label>
+              <textarea name="outcome_notes" class="form-control" rows="3" placeholder="Add any supporting notes"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Outcome</button>
           </div>
         </form>
       </div>

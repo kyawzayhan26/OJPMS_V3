@@ -35,8 +35,21 @@ function navigateTo(path) {
   window.location.href = resolveAppPath(path);
 }
 
+function getStoredUser() {
+  try {
+    const raw = localStorage.getItem('ojpms_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+function getUserRole() {
+  return getStoredUser()?.role || null;
+}
+
 function renderNavbar() {
-  const user = JSON.parse(localStorage.getItem('ojpms_user') || 'null');
+  const user = getStoredUser();
   const path = window.location.pathname;
   const links = [
     {
@@ -78,6 +91,31 @@ function renderNavbar() {
       path: 'clients/kanban.html',
       label: 'Clients Board',
       match: (p) => p.endsWith('/clients/kanban.html'),
+    },
+    {
+      path: 'smartcard-processes/list.html',
+      label: 'SmartCard',
+      match: (p) => p.includes('/smartcard-processes/'),
+    },
+    {
+      path: 'visa-processes/list.html',
+      label: 'Visa',
+      match: (p) => p.includes('/visa-processes/'),
+    },
+    {
+      path: 'prospect-job-matches/list.html',
+      label: 'Job Matches',
+      match: (p) => p.includes('/prospect-job-matches/'),
+    },
+    {
+      path: 'visa-applications/list.html',
+      label: 'Visa Applications',
+      match: (p) => p.includes('/visa-applications/'),
+    },
+    {
+      path: 'smartcard-applications/list.html',
+      label: 'SmartCard Applications',
+      match: (p) => p.includes('/smartcard-applications/'),
     },
     {
       path: 'payments/list.html',
@@ -155,5 +193,118 @@ function toggleFormDisabled(form, disabled) {
     if (el instanceof HTMLButtonElement || el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
       el.disabled = disabled;
     }
+  });
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function toLocalInputValue(value) {
+  if (!value) return '';
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  } catch (err) {
+    return '';
+  }
+}
+
+function ensureKeywordModal() {
+  let modalEl = document.getElementById('keyword-confirm-modal');
+  if (!modalEl) {
+    modalEl = document.createElement('div');
+    modalEl.id = 'keyword-confirm-modal';
+    modalEl.className = 'modal fade';
+    modalEl.tabIndex = -1;
+    modalEl.innerHTML = `
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Confirm Action</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <p id="keyword-confirm-message" class="mb-3"></p>
+            <div class="mb-3">
+              <label for="keyword-confirm-input" class="form-label small text-muted">Type the keyword below to continue</label>
+              <input type="text" class="form-control" id="keyword-confirm-input" autocomplete="off" />
+              <div class="invalid-feedback" id="keyword-confirm-feedback"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-primary" id="keyword-confirm-button">Confirm</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(modalEl);
+  }
+  return {
+    modalEl,
+    titleEl: modalEl.querySelector('.modal-title'),
+    messageEl: modalEl.querySelector('#keyword-confirm-message'),
+    inputEl: modalEl.querySelector('#keyword-confirm-input'),
+    feedbackEl: modalEl.querySelector('#keyword-confirm-feedback'),
+    confirmBtn: modalEl.querySelector('#keyword-confirm-button'),
+    cancelBtn: modalEl.querySelector('[data-bs-dismiss="modal"]'),
+  };
+}
+
+function promptKeywordConfirm({ title = 'Confirm Action', messageHtml = '', keyword = 'confirm', confirmLabel = 'Confirm' } = {}) {
+  const { modalEl, titleEl, messageEl, inputEl, feedbackEl, confirmBtn, cancelBtn } = ensureKeywordModal();
+  titleEl.textContent = title;
+  messageEl.innerHTML = messageHtml;
+  inputEl.value = '';
+  inputEl.classList.remove('is-invalid');
+  feedbackEl.textContent = '';
+  confirmBtn.textContent = confirmLabel;
+
+  return new Promise((resolve) => {
+    const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const normalizedKeyword = String(keyword || '').trim().toLowerCase();
+
+    const cleanup = () => {
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    const onCancel = () => {
+      cleanup();
+      modal.hide();
+      resolve(false);
+    };
+
+    const onConfirm = (ev) => {
+      ev.preventDefault();
+      const userInput = inputEl.value.trim().toLowerCase();
+      if (userInput !== normalizedKeyword) {
+        inputEl.classList.add('is-invalid');
+        feedbackEl.textContent = `Please type "${keyword}" to confirm.`;
+        inputEl.focus();
+        return;
+      }
+      cleanup();
+      modal.hide();
+      resolve(true);
+    };
+
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    modalEl.addEventListener('hidden.bs.modal', onHidden);
+    modal.show();
+    setTimeout(() => inputEl.focus(), 200);
   });
 }
