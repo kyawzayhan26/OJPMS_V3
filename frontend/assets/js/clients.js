@@ -1,4 +1,5 @@
 const CLIENT_STATUSES = [
+  'Newly_Promoted',
   'SmartCard_InProgress',
   'Visa_InProgress',
   'Payment_Pending',
@@ -10,6 +11,136 @@ const CLIENT_STATUSES = [
 
 function clientStatusLabel(status) {
   return (status || '').replace(/_/g, ' ');
+}
+
+const clientCache = new Map();
+
+function modalPromise(modalId, formId, alertId, onValidate) {
+  const modalEl = document.getElementById(modalId);
+  const form = document.getElementById(formId);
+  if (!modalEl || !form) return Promise.resolve(null);
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const alertBox = alertId ? document.getElementById(alertId) : null;
+
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      const result = onValidate ? onValidate(data, alertBox) : data;
+      if (!result) {
+        return;
+      }
+      cleanup();
+      modal.hide();
+      resolve(result);
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
+  });
+}
+
+function promptSmartcardProcess() {
+  return modalPromise('smartcardProcessModal', 'smartcard-process-form', 'smartcard-process-alert', (data, alertBox) => {
+    const id = Number(data.application_id);
+    if (!Number.isInteger(id) || id <= 0) {
+      showAlert('smartcard-process-alert', 'Please provide a valid application ID.', 'danger');
+      return null;
+    }
+    return { application_id: id, remarks: data.remarks ? data.remarks.trim() || null : null };
+  });
+}
+
+function promptVisaProcess() {
+  return modalPromise('visaProcessModal', 'visa-process-form', 'visa-process-alert', (data) => {
+    const id = Number(data.application_id);
+    if (!Number.isInteger(id) || id <= 0) {
+      showAlert('visa-process-alert', 'Please provide a valid application ID.', 'danger');
+      return null;
+    }
+    return {
+      application_id: id,
+      visa_type: data.visa_type ? data.visa_type.trim() || null : null,
+      remarks: data.remarks ? data.remarks.trim() || null : null,
+    };
+  });
+}
+
+function promptClientPayment() {
+  return modalPromise('clientPaymentModal', 'client-payment-form', 'client-payment-alert', (data) => {
+    const amount = Number(data.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showAlert('client-payment-alert', 'Please enter a valid amount.', 'danger');
+      return null;
+    }
+    const currency = (data.currency || '').trim().toUpperCase();
+    if (!currency || currency.length !== 3) {
+      showAlert('client-payment-alert', 'Currency must be a 3-letter code.', 'danger');
+      return null;
+    }
+    const reference_no = (data.reference_no || '').trim();
+    if (!reference_no) {
+      showAlert('client-payment-alert', 'Reference number is required.', 'danger');
+      return null;
+    }
+    return {
+      amount,
+      currency,
+      reference_no,
+      invoice_description: data.invoice_description ? data.invoice_description.trim() || null : null,
+    };
+  });
+}
+
+function promptFlightBooking() {
+  return modalPromise('flightBookingModal', 'flight-booking-form', 'flight-booking-alert', (data) => {
+    const airline = (data.airline || '').trim();
+    const booking_reference = (data.booking_reference || '').trim();
+    if (!airline) {
+      showAlert('flight-booking-alert', 'Airline is required.', 'danger');
+      return null;
+    }
+    if (!booking_reference) {
+      showAlert('flight-booking-alert', 'Booking reference is required.', 'danger');
+      return null;
+    }
+    if (!data.flight_datetime) {
+      showAlert('flight-booking-alert', 'Flight date and time is required.', 'danger');
+      return null;
+    }
+    return {
+      airline,
+      booking_reference,
+      flight_datetime: data.flight_datetime,
+      remarks: data.remarks ? data.remarks.trim() || null : null,
+    };
+  });
+}
+
+function promptAccommodation() {
+  return modalPromise('accommodationModal', 'accommodation-form', 'accommodation-alert', (data) => {
+    const type = (data.type || '').trim();
+    const details = (data.details || '').trim();
+    if (!type || !details) {
+      showAlert('accommodation-alert', 'Accommodation type and details are required.', 'danger');
+      return null;
+    }
+    return { type, details };
+  });
 }
 
 async function loadClientsList() {
@@ -118,9 +249,16 @@ async function loadClientsKanban() {
     const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
     const rows = res.data?.rows || [];
     const buckets = Object.fromEntries(CLIENT_STATUSES.map((s) => [s, []]));
+    clientCache.clear();
     rows.forEach((client) => {
       const status = CLIENT_STATUSES.includes(client.status) ? client.status : CLIENT_STATUSES[0];
       buckets[status].push(client);
+      const keyStr = String(client.id);
+      clientCache.set(keyStr, client);
+      const keyNum = Number(keyStr);
+      if (!Number.isNaN(keyNum)) {
+        clientCache.set(keyNum, client);
+      }
     });
     CLIENT_STATUSES.forEach((status) => {
       const col = document.getElementById(`c-${status}`);
@@ -143,33 +281,147 @@ async function loadClientsKanban() {
         group: 'clients',
         animation: 150,
         onEnd: async (evt) => {
-          const id = evt.item.getAttribute('data-id');
+          const idAttr = evt.item.getAttribute('data-id');
+          const idNum = Number(idAttr);
           const toStatus = evt.to.getAttribute('data-status');
           const fromStatus = evt.from.getAttribute('data-status');
-          if (!id || !toStatus || toStatus === fromStatus) return;
+          if (!idAttr || !toStatus || toStatus === fromStatus) return;
+          if (Number.isNaN(idNum)) {
+            revert();
+            showAlert('alert-box', 'Client identifier is invalid.', 'danger');
+            return;
+          }
 
           const revert = () => {
             const reference = evt.from.children[evt.oldIndex] || null;
             evt.from.insertBefore(evt.item, reference);
           };
 
-          const name = evt.item.querySelector('.fw-semibold')?.textContent?.trim() || `Client #${id}`;
-          const confirmed = await promptKeywordConfirm({
-            title: 'Confirm client status',
-            messageHtml: `Type <strong>confirm</strong> to move <strong>${escapeHtml(name)}</strong> to <strong>${escapeHtml(clientStatusLabel(toStatus))}</strong>.`,
-            keyword: 'confirm',
-            confirmLabel: 'Confirm',
-          });
-
-          if (!confirmed) {
+          const client = clientCache.get(idAttr) || clientCache.get(idNum);
+          if (!client) {
             revert();
+            showAlert('alert-box', 'Client data unavailable. Please refresh.', 'danger');
             return;
           }
 
+          const fromIndex = CLIENT_STATUSES.indexOf(fromStatus);
+          const toIndex = CLIENT_STATUSES.indexOf(toStatus);
+          if (fromIndex === -1 || toIndex === -1) {
+            revert();
+            showAlert('alert-box', 'Unsupported status change.', 'danger');
+            return;
+          }
+          if (toIndex <= fromIndex) {
+            revert();
+            showAlert('alert-box', 'Clients can only move forward in the pipeline.', 'warning');
+            return;
+          }
+          if (toIndex - fromIndex > 1) {
+            revert();
+            showAlert('alert-box', 'Please progress one stage at a time.', 'warning');
+            return;
+          }
+
+          const transitionKey = `${fromStatus}->${toStatus}`;
+          const payload = { to_status: toStatus };
+          let successMessage = `Client moved to ${clientStatusLabel(toStatus)}.`;
+
           try {
-            await api.patch(`/clients/${id}/status`, { to_status: toStatus });
-            evt.item.setAttribute('data-status', toStatus);
-            showAlert('alert-box', `Client status updated to ${clientStatusLabel(toStatus)}.`, 'success');
+            switch (transitionKey) {
+              case 'Newly_Promoted->SmartCard_InProgress': {
+                const data = await promptSmartcardProcess();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.smartcard = data;
+                successMessage = 'SmartCard process started.';
+                break;
+              }
+              case 'SmartCard_InProgress->Visa_InProgress': {
+                const data = await promptVisaProcess();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.visa = data;
+                successMessage = 'Visa process started.';
+                break;
+              }
+              case 'Visa_InProgress->Payment_Pending': {
+                const data = await promptClientPayment();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.payment = data;
+                successMessage = 'Payment recorded.';
+                break;
+              }
+              case 'Payment_Pending->FlightBooking_Pending': {
+                const data = await promptFlightBooking();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.flight = data;
+                successMessage = 'Flight booking saved.';
+                break;
+              }
+              case 'FlightBooking_Pending->Accommodation_Pending': {
+                const data = await promptAccommodation();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.accommodation = data;
+                successMessage = 'Accommodation recorded.';
+                break;
+              }
+              case 'Accommodation_Pending->Approved_For_Deployment': {
+                if ((getUserRole() || '').toLowerCase() !== 'admin') {
+                  revert();
+                  showAlert('alert-box', 'Only administrators can approve deployment.', 'danger');
+                  return;
+                }
+                const confirmed = await promptKeywordConfirm({
+                  title: 'Approve for deployment',
+                  messageHtml: 'Type <strong>confirm</strong> to approve this client for deployment.',
+                  keyword: 'confirm',
+                  confirmLabel: 'Approve',
+                });
+                if (!confirmed) {
+                  revert();
+                  return;
+                }
+                successMessage = 'Client approved for deployment.';
+                break;
+              }
+              case 'Approved_For_Deployment->Departed': {
+                const confirmed = await promptKeywordConfirm({
+                  title: 'Mark as departed',
+                  messageHtml: 'Type <strong>confirm</strong> to mark this client as departed.',
+                  keyword: 'confirm',
+                  confirmLabel: 'Confirm',
+                });
+                if (!confirmed) {
+                  revert();
+                  return;
+                }
+                successMessage = 'Client marked as departed.';
+                break;
+              }
+              default: {
+                revert();
+                showAlert('alert-box', 'This transition is not supported yet.', 'danger');
+                return;
+              }
+            }
+
+            await api.patch(`/clients/${idNum}/status`, payload);
+            showAlert('alert-box', successMessage, 'success');
+            await loadClientsKanban();
+            return;
           } catch (err) {
             revert();
             showAlert('alert-box', err.response?.data?.message || 'Failed to update status', 'danger');
@@ -220,13 +472,8 @@ async function loadClientDetails() {
   };
 
   try {
-    const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
-    const rows = res.data?.rows || [];
-    const client = rows.find((c) => String(c.id) === String(id));
-    if (!client) {
-      showAlert('alert-box', 'Client not found', 'warning');
-      return;
-    }
+    const res = await api.get(`/clients/${id}`);
+    const client = res.data;
     if (summary) {
       summary.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">

@@ -53,16 +53,6 @@ function renderNavbar() {
   const path = window.location.pathname;
   const links = [
     {
-      path: 'prospects/list.html',
-      label: 'Prospects',
-      match: (p) => p.includes('/prospects/') && !p.endsWith('/prospects/kanban.html'),
-    },
-    {
-      path: 'prospects/kanban.html',
-      label: 'Prospects Board',
-      match: (p) => p.endsWith('/prospects/kanban.html'),
-    },
-    {
       path: 'employers/list.html',
       label: 'Employers',
       match: (p) => p.includes('/employers/'),
@@ -71,6 +61,26 @@ function renderNavbar() {
       path: 'jobs/list.html',
       label: 'Jobs',
       match: (p) => p.includes('/jobs/'),
+    },
+    {
+      path: 'prospects/kanban.html',
+      label: 'Prospects Board',
+      match: (p) => p.endsWith('/prospects/kanban.html'),
+    },
+    {
+      path: 'prospects/list.html',
+      label: 'Prospects',
+      match: (p) => p.includes('/prospects/') && !p.endsWith('/prospects/kanban.html'),
+    },
+    {
+      path: 'prospect-job-matches/list.html',
+      label: 'Job Matches',
+      match: (p) => p.includes('/prospect-job-matches/'),
+    },
+    {
+      path: 'documents/list.html',
+      label: 'Documents',
+      match: (p) => p.includes('/documents/'),
     },
     {
       path: 'applications/list.html',
@@ -83,29 +93,19 @@ function renderNavbar() {
       match: (p) => p.includes('/interviews/'),
     },
     {
-      path: 'clients/list.html',
-      label: 'Clients',
-      match: (p) => p.includes('/clients/') && !p.endsWith('/clients/kanban.html'),
-    },
-    {
       path: 'clients/kanban.html',
       label: 'Clients Board',
       match: (p) => p.endsWith('/clients/kanban.html'),
     },
     {
-      path: 'smartcard-processes/list.html',
+      path: 'clients/list.html',
+      label: 'Clients',
+      match: (p) => p.includes('/clients/') && !p.endsWith('/clients/kanban.html'),
+    },
+    {
+      path: 'smartcard-applications/list.html',
       label: 'SmartCard',
-      match: (p) => p.includes('/smartcard-processes/'),
-    },
-    {
-      path: 'visa-processes/list.html',
-      label: 'Visa',
-      match: (p) => p.includes('/visa-processes/'),
-    },
-    {
-      path: 'prospect-job-matches/list.html',
-      label: 'Job Matches',
-      match: (p) => p.includes('/prospect-job-matches/'),
+      match: (p) => p.includes('/smartcard-applications/'),
     },
     {
       path: 'visa-applications/list.html',
@@ -113,14 +113,14 @@ function renderNavbar() {
       match: (p) => p.includes('/visa-applications/'),
     },
     {
-      path: 'smartcard-applications/list.html',
-      label: 'SmartCard Applications',
-      match: (p) => p.includes('/smartcard-applications/'),
-    },
-    {
       path: 'payments/list.html',
       label: 'Payments',
       match: (p) => p.includes('/payments/'),
+    },
+    {
+      path: 'flight-bookings/list.html',
+      label: 'Flight Bookings',
+      match: (p) => p.includes('/flight-bookings/'),
     },
   ];
   const navLinks = links

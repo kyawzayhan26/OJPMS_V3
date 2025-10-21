@@ -26,10 +26,10 @@
       </div>
       <div class="card shadow-sm">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="h5 m-0">Client Information</h2>
-            <div class="d-flex gap-2">
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-edit">Cancel</button>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h5 m-0">Client Information</h2>
+              <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="cancel-edit">Cancel</button>
               <button type="button" class="btn btn-sm btn-outline-primary" id="edit-client">Edit</button>
               <button type="button" class="btn btn-sm btn-primary d-none" id="save-client">Save</button>
             </div>
@@ -50,6 +50,7 @@
             <div class="col-md-6">
               <label class="form-label">Status</label>
               <select class="form-select" name="status">
+                <option value="Newly_Promoted">Newly Promoted</option>
                 <option value="SmartCard_InProgress">SmartCard In Progress</option>
                 <option value="Visa_InProgress">Visa In Progress</option>
                 <option value="Payment_Pending">Payment Pending</option>

@@ -94,6 +94,31 @@ router.get(
   }
 );
 
+// GET single prospect
+router.get(
+  '/:id',
+  requireAuth,
+  can('prospects:read'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT *
+            FROM Prospects
+           WHERE id = @id AND isDeleted = 0;
+        `);
+      const row = result.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
+      res.json(row);
+    } catch (err) { next(err); }
+  }
+);
+
 /**
  * POST /prospects
  * Uses latest schema (no created_by). Defaults status to 'enquiry'.
@@ -717,6 +742,98 @@ router.patch(
       res.json({ ok: true, from_status, to_status, remarks, meta });
     } catch (err) {
       try { await tx.rollback(); } catch (_) {}
+      next(err);
+    }
+  }
+);
+
+router.post(
+  '/:id/promote',
+  requireAuth,
+  can('prospects:write'),
+  can('clients:write'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    const pool = getPool();
+    const sql = (await import('mssql')).default;
+    const tx = new sql.Transaction(pool);
+    try {
+      await tx.begin();
+      const id = Number(req.params.id);
+
+      const prospectRes = await new sql.Request(tx)
+        .input('id', sql.BigInt, id)
+        .query(`
+          SELECT TOP 1 *
+          FROM Prospects
+          WHERE id=@id AND isDeleted=0;
+        `);
+      const prospect = prospectRes.recordset[0];
+      if (!prospect) {
+        await tx.rollback();
+        return res.status(404).json({ message: 'Prospect not found' });
+      }
+
+      if ((prospect.status || '').toLowerCase() !== 'interview_passed') {
+        await tx.rollback();
+        return res.status(400).json({ message: 'Prospect must pass interview before promotion.' });
+      }
+
+      const existingClientRes = await new sql.Request(tx)
+        .input('prospect_id', sql.BigInt, id)
+        .query(`
+          SELECT TOP 1 id
+          FROM Clients
+          WHERE prospect_id=@prospect_id AND isDeleted=0;
+        `);
+      if (existingClientRes.recordset[0]) {
+        await tx.rollback();
+        return res.status(409).json({ message: 'Prospect already promoted to client.' });
+      }
+
+      const insertClient = await new sql.Request(tx)
+        .input('prospect_id', sql.BigInt, id)
+        .input('full_name', sql.NVarChar, prospect.full_name || null)
+        .input('passport_no', sql.NVarChar, prospect.passport_no || null)
+        .input('status', sql.NVarChar, 'Newly_Promoted')
+        .query(`
+          INSERT INTO Clients (
+            prospect_id, full_name, passport_no, status, remarks1, created_at, isDeleted,
+            accommodation_type, accommodation_details
+          )
+          OUTPUT INSERTED.*
+          VALUES (
+            @prospect_id, @full_name, @passport_no, @status, NULL, SYSUTCDATETIME(), 0,
+            NULL, NULL
+          );
+        `);
+
+      const clientRow = insertClient.recordset[0];
+
+      await new sql.Request(tx)
+        .input('client_id', sql.BigInt, clientRow.id)
+        .input('changed_by', sql.BigInt, req.user?.userId || null)
+        .input('status', sql.NVarChar, 'Newly_Promoted')
+        .query(`
+          INSERT INTO ClientStatusHistory (client_id, from_status, to_status, changed_by, changed_at, remarks)
+          VALUES (@client_id, @status, @status, @changed_by, SYSUTCDATETIME(), N'Promoted from prospect');
+        `);
+
+      await tx.commit();
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId || null,
+        action: 'PROSPECT_PROMOTE',
+        entity: 'Prospects',
+        entityId: id,
+        details: { client_id: clientRow.id }
+      });
+
+      return res.status(201).json({ client_id: clientRow.id });
+    } catch (err) {
+      try { await tx.rollback(); } catch (_) { /* ignore */ }
       next(err);
     }
   }

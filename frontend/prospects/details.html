@@ -21,7 +21,11 @@
           <a href="./list.html" class="btn btn-sm btn-outline-secondary">&lt; Back to list</a>
           <a href="./kanban.html" class="btn btn-sm btn-outline-secondary">Board</a>
         </div>
-        <button id="delete-prospect" class="btn btn-sm btn-outline-danger">Delete</button>
+        <div class="d-flex gap-2">
+          <button id="prospect-documents-button" class="btn btn-sm btn-outline-primary">Documents</button>
+          <button id="promote-prospect" class="btn btn-sm btn-success">Promote to client</button>
+          <button id="delete-prospect" class="btn btn-sm btn-outline-danger">Delete</button>
+        </div>
       </div>
       <div id="alert-box"></div>
       <div class="row g-4">
@@ -31,10 +35,10 @@
           </div>
           <div class="card shadow-sm mt-3">
             <div class="card-body">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 m-0">Profile</h2>
-                <div class="d-flex gap-2">
-                  <button type="button" class="btn btn-sm btn-outline-secondary" id="cancel-edit">Cancel</button>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                  <h2 class="h5 m-0">Profile</h2>
+                  <div class="d-flex gap-2">
+                  <button type="button" class="btn btn-sm btn-outline-secondary d-none" id="cancel-edit">Cancel</button>
                   <button type="button" class="btn btn-sm btn-outline-primary" id="edit-prospect">Edit</button>
                   <button type="button" class="btn btn-sm btn-primary d-none" id="save-prospect">Save</button>
                 </div>
@@ -97,6 +101,17 @@
           </div>
         </div>
         <div class="col-lg-5">
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 class="h6 m-0">Documents</h2>
+                <a id="open-documents-page" class="btn btn-sm btn-outline-primary" href="#">View all</a>
+              </div>
+              <div id="prospect-documents" class="d-flex flex-column gap-2 small text-muted">
+                <div class="text-muted">Loading documents…</div>
+              </div>
+            </div>
+          </div>
           <div class="card shadow-sm mb-3">
             <div class="card-body">
               <h2 class="h6">Interested Job</h2>

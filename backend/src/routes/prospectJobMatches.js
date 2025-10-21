@@ -48,7 +48,7 @@ router.get(
           FROM ProspectJobMatches m
           JOIN Prospects p ON p.id = m.prospect_id
           JOIN Jobs j ON j.id = m.job_id
-          WHERE m.isDeleted = 0
+          WHERE m.[insDeleted] = 0
             ${status      ? 'AND m.status = @status'           : ''}
             ${prospect_id ? 'AND m.prospect_id = @prospect_id' : ''}
             ${job_id      ? 'AND m.job_id = @job_id'           : ''}
@@ -78,7 +78,7 @@ router.get(
           FROM ProspectJobMatches m
           JOIN Prospects p ON p.id = m.prospect_id
           JOIN Jobs j ON j.id = m.job_id
-          WHERE m.isDeleted = 0
+          WHERE m.[insDeleted] = 0
             ${status      ? 'AND m.status = @status'           : ''}
             ${prospect_id ? 'AND m.prospect_id = @prospect_id' : ''}
             ${job_id      ? 'AND m.job_id = @job_id'           : ''}
@@ -118,7 +118,7 @@ router.get(
           FROM ProspectJobMatches m
           JOIN Prospects p ON p.id = m.prospect_id
           JOIN Jobs j ON j.id = m.job_id
-          WHERE m.isDeleted = 0 AND m.prospect_id = @prospect_id
+          WHERE m.[insDeleted] = 0 AND m.prospect_id = @prospect_id
           ORDER BY m.updated_at DESC, m.created_at DESC;
         `);
       res.json({ rows: result.recordset || [] });
@@ -189,11 +189,11 @@ router.post(
           UPDATE ProspectJobMatches
              SET is_current = 0,
                  updated_at = SYSUTCDATETIME()
-           WHERE prospect_id = @prospect_id AND isDeleted = 0;
+           WHERE prospect_id = @prospect_id AND [insDeleted] = 0;
         END;
 
         INSERT INTO ProspectJobMatches
-          (prospect_id, job_id, matched_by, status, rationale, is_current, created_at, updated_at, isDeleted)
+          (prospect_id, job_id, matched_by, status, rationale, is_current, created_at, updated_at, [insDeleted])
         OUTPUT INSERTED.*
         VALUES
           (@prospect_id, @job_id, @matched_by, @status, @rationale, @is_current, SYSUTCDATETIME(), SYSUTCDATETIME(), 0);
@@ -259,7 +259,7 @@ router.put(
           UPDATE ProspectJobMatches
              SET is_current = 0,
                  updated_at = SYSUTCDATETIME()
-           WHERE prospect_id = @prospect_id AND id <> @id AND isDeleted = 0;
+           WHERE prospect_id = @prospect_id AND id <> @id AND [insDeleted] = 0;
         END;
 
         UPDATE ProspectJobMatches
@@ -268,7 +268,7 @@ router.put(
                rationale = COALESCE(@rationale, rationale),
                is_current = COALESCE(@is_current, is_current),
                updated_at = SYSUTCDATETIME()
-         WHERE id = @id AND isDeleted = 0;
+         WHERE id = @id AND [insDeleted] = 0;
 
         SELECT m.*, p.full_name AS prospect_name, j.title AS job_title
         FROM ProspectJobMatches m
@@ -308,9 +308,9 @@ router.delete(
         .input('id', id)
         .query(`
           UPDATE ProspectJobMatches
-             SET isDeleted = 1,
+             SET [insDeleted] = 1,
                  updated_at = SYSUTCDATETIME()
-           WHERE id = @id AND isDeleted = 0;
+           WHERE id = @id AND [insDeleted] = 0;
 
           SELECT * FROM ProspectJobMatches WHERE id = @id;
         `);

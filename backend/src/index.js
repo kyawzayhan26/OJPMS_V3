@@ -25,6 +25,7 @@ import paymentsRouter from './routes/payments.js';
 import prospectJobMatchesRouter from './routes/prospectJobMatches.js';
 import visaApplicationsRouter from './routes/visaApplications.js';
 import smartCardApplicationsRouter from './routes/smartCardApplications.js';
+import flightBookingsRouter from './routes/flightBookings.js';
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -52,6 +53,7 @@ app.use('/payments', paymentsRouter);
 app.use('/prospect-job-matches', prospectJobMatchesRouter);
 app.use('/visa-applications', visaApplicationsRouter);
 app.use('/smartcard-applications', smartCardApplicationsRouter);
+app.use('/flight-bookings', flightBookingsRouter);
 
 
 // tighten CORS after routes if you need different policy for static /api/

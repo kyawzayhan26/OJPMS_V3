@@ -41,6 +41,7 @@ async function loadPaymentsList() {
               <div>
                 <div class="fw-semibold">${pmt.client_name || 'Client #' + pmt.client_id}</div>
                 <div class="small text-muted">Reference: ${pmt.reference_no || '—'}</div>
+                ${pmt.invoice_description ? `<div class="small text-muted">${escapeHtml(pmt.invoice_description)}</div>` : ''}
               </div>
               ${paymentStatusBadge(pmt.status)}
             </div>
@@ -80,11 +81,10 @@ function initPaymentForm() {
       const payload = {
         client_id: Number(data.client_id),
         amount: Number(data.amount),
-        currency: data.currency.toUpperCase(),
+        currency: (data.currency || '').toUpperCase(),
         status: data.status,
-        collected_by: data.collected_by || null,
-        collected_at: data.collected_at || null,
-        reference_no: data.reference_no || null,
+        reference_no: data.reference_no ? data.reference_no.trim() || null : null,
+        invoice_description: data.invoice_description ? data.invoice_description.trim() || null : null,
       };
       await api.post('/payments', payload);
       form.reset();
@@ -111,6 +111,9 @@ async function loadPaymentDetails() {
   }
   const summary = document.getElementById('payment-summary');
   const form = document.getElementById('payment-detail-form');
+  const editBtn = document.getElementById('edit-payment');
+  const saveBtn = document.getElementById('save-payment');
+  const cancelBtn = document.getElementById('cancel-edit');
 
   const setFormValues = (pmt) => {
     if (!form) return;
@@ -118,35 +121,83 @@ async function loadPaymentDetails() {
     form.amount.value = pmt.amount || '';
     form.currency.value = (pmt.currency || '').toUpperCase();
     form.status.value = PAYMENT_STATUSES.includes(pmt.status) ? pmt.status : 'Pending';
-    form.collected_by.value = pmt.collected_by || '';
-    form.collected_at.value = pmt.collected_at ? pmt.collected_at.substring(0, 16) : '';
     form.reference_no.value = pmt.reference_no || '';
+    form.invoice_description.value = pmt.invoice_description || '';
+  };
+
+  const toggleEdit = (editing) => {
+    if (!form) return;
+    Array.from(form.elements).forEach((el) => {
+      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
+        el.disabled = !editing;
+      }
+    });
+    if (editBtn) editBtn.classList.toggle('d-none', editing);
+    if (saveBtn) saveBtn.classList.toggle('d-none', !editing);
+    if (cancelBtn) cancelBtn.classList.toggle('d-none', !editing);
   };
 
   try {
-    const res = await api.get('/payments', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
-    const rows = res.data?.rows || [];
-    const payment = rows.find((p) => String(p.id) === String(id));
-    if (!payment) {
-      showAlert('alert-box', 'Payment not found', 'warning');
-      return;
-    }
+    const res = await api.get(`/payments/${id}`);
+    const payment = res.data;
     if (summary) {
       summary.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <h1 class="h5 mb-1">${payment.client_name || 'Client #' + payment.client_id}</h1>
-            <div class="small text-muted">Reference: ${payment.reference_no || '—'}</div>
+            <h1 class="h5 mb-1">${escapeHtml(payment.client_name || `Client #${payment.client_id}`)}</h1>
+            <div class="small text-muted">Reference: ${escapeHtml(payment.reference_no || '—')}</div>
+            ${payment.invoice_description ? `<div class="small text-muted">${escapeHtml(payment.invoice_description)}</div>` : ''}
           </div>
           ${paymentStatusBadge(payment.status)}
         </div>
-        <div class="small text-muted mt-2">Amount ${payment.amount} ${payment.currency} · Created ${formatDate(payment.created_at)}</div>`;
+        <div class="small text-muted mt-2">Created ${formatDate(payment.created_at)}${payment.updated_at ? ` · Updated ${formatDate(payment.updated_at)}` : ''}</div>`;
     }
     setFormValues(payment);
-    if (form) {
-      Array.from(form.elements).forEach((el) => {
-        if (el.name) el.disabled = true;
-      });
+    toggleEdit(false);
+
+    if (editBtn) {
+      editBtn.onclick = () => toggleEdit(true);
+    }
+    if (cancelBtn) {
+      cancelBtn.onclick = () => {
+        setFormValues(payment);
+        toggleEdit(false);
+      };
+    }
+    if (saveBtn) {
+      saveBtn.onclick = async () => {
+        if (!form) return;
+        const clientIdVal = Number(form.client_id.value);
+        if (!Number.isInteger(clientIdVal) || clientIdVal <= 0) {
+          showAlert('alert-box', 'Client ID must be a positive number.', 'danger');
+          return;
+        }
+        const amountVal = Number(form.amount.value);
+        if (!Number.isFinite(amountVal) || amountVal <= 0) {
+          showAlert('alert-box', 'Amount must be greater than zero.', 'danger');
+          return;
+        }
+        const currencyVal = (form.currency.value || '').trim().toUpperCase();
+        if (!currencyVal) {
+          showAlert('alert-box', 'Currency is required.', 'danger');
+          return;
+        }
+        const payload = {
+          client_id: clientIdVal,
+          amount: Number(amountVal.toFixed(2)),
+          currency: currencyVal,
+          status: form.status.value || 'Pending',
+          reference_no: form.reference_no.value ? form.reference_no.value.trim() || null : null,
+          invoice_description: form.invoice_description.value ? form.invoice_description.value.trim() || null : null,
+        };
+        try {
+          await api.put(`/payments/${id}`, payload);
+          showAlert('alert-box', 'Payment updated.', 'success');
+          await loadPaymentDetails();
+        } catch (err) {
+          showAlert('alert-box', err.response?.data?.message || 'Failed to update payment', 'danger');
+        }
+      };
     }
   } catch (err) {
     showAlert('alert-box', err.response?.data?.message || 'Failed to load payment', 'danger');

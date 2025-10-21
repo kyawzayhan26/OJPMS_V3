@@ -135,9 +135,14 @@ async function loadProspectsKanban() {
     const buckets = Object.fromEntries(PROSPECT_STATUSES.map((s) => [s, []]));
 
     rows.forEach((p) => {
-      prospectCache.set(p.id, p);
       const status = PROSPECT_STATUSES.includes(p.status) ? p.status : 'enquiry';
       buckets[status].push(p);
+      const keyStr = String(p.id);
+      prospectCache.set(keyStr, p);
+      const keyNum = Number(keyStr);
+      if (!Number.isNaN(keyNum)) {
+        prospectCache.set(keyNum, p);
+      }
     });
 
     PROSPECT_STATUSES.forEach((status) => {
@@ -235,6 +240,38 @@ async function fetchPendingInterview(prospectId) {
   } catch (err) {
     console.error('Failed to fetch interview', err);
     return null;
+  }
+}
+
+async function loadProspectDocumentsSummary(prospectId) {
+  const container = document.getElementById('prospect-documents');
+  const link = document.getElementById('open-documents-page');
+  if (link) {
+    link.href = resolveAppPath(`documents/list.html?prospect_id=${prospectId}`);
+  }
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted">Loading documents…</div>';
+  try {
+    const res = await api.get('/documents', { params: { prospect_id: prospectId } });
+    const rows = res.data?.rows || [];
+    if (!rows.length) {
+      container.innerHTML = '<div class="text-muted">No documents uploaded yet.</div>';
+      return;
+    }
+    const summary = rows
+      .slice(0, 5)
+      .map(
+        (doc) => `
+        <div class="d-flex justify-content-between align-items-center">
+          <span>${escapeHtml(doc.type || 'Document')}</span>
+          <span class="badge text-bg-secondary">${escapeHtml(doc.status || 'Pending')}</span>
+        </div>`
+      )
+      .join('');
+    const remaining = rows.length > 5 ? `<div class="text-muted">+${rows.length - 5} more</div>` : '';
+    container.innerHTML = summary + remaining;
+  } catch (err) {
+    container.innerHTML = '<div class="text-danger">Failed to load documents.</div>';
   }
 }
 
@@ -511,11 +548,17 @@ function openInterviewOutcomeModal(prospect, interview) {
 }
 
 async function handleProspectDrop(evt) {
-  const id = Number(evt.item.getAttribute('data-id'));
+  const idAttr = evt.item.getAttribute('data-id');
   const toStatus = evt.to.getAttribute('data-status');
   const fromStatus = evt.from.getAttribute('data-status');
 
-  if (!id || !toStatus || toStatus === fromStatus) {
+  if (!idAttr || !toStatus || toStatus === fromStatus) {
+    return;
+  }
+
+  const prospectId = Number(idAttr);
+  if (Number.isNaN(prospectId)) {
+    showAlert('alert-box', 'Invalid prospect identifier.', 'danger');
     return;
   }
 
@@ -545,7 +588,7 @@ async function handleProspectDrop(evt) {
     return;
   }
 
-  const prospect = prospectCache.get(id);
+  const prospect = prospectCache.get(idAttr) || prospectCache.get(prospectId);
   if (!prospect) {
     revert();
     showAlert('alert-box', 'Prospect data unavailable. Please refresh.', 'danger');
@@ -566,7 +609,7 @@ async function handleProspectDrop(evt) {
         }
         try {
           const createRes = await api.post('/prospect-job-matches', {
-            prospect_id: id,
+            prospect_id: prospectId,
             job_id: result.job_id,
             rationale: result.rationale,
             is_current: true,
@@ -606,7 +649,7 @@ async function handleProspectDrop(evt) {
         break;
       }
       case 'jobmatch_approved->application_drafted': {
-        const match = await fetchCurrentJobMatch(id);
+        const match = await fetchCurrentJobMatch(prospectId);
         if (!match || (match.status && match.status !== 'approved')) {
           revert();
           showAlert('alert-box', 'No approved job match available for this prospect.', 'danger');
@@ -619,7 +662,7 @@ async function handleProspectDrop(evt) {
         }
         try {
           const createRes = await api.post('/applications', {
-            prospect_id: id,
+            prospect_id: prospectId,
             job_id: match.job_id,
             status: 'Draft',
             notes: result.notes || null,
@@ -637,7 +680,7 @@ async function handleProspectDrop(evt) {
         break;
       }
       case 'application_drafted->application_submitted': {
-        const draft = await fetchLatestApplication(id, 'Draft');
+        const draft = await fetchLatestApplication(prospectId, 'Draft');
         if (!draft) {
           revert();
           showAlert('alert-box', 'No draft application found to submit.', 'danger');
@@ -660,7 +703,7 @@ async function handleProspectDrop(evt) {
         break;
       }
       case 'application_submitted->interview_scheduled': {
-        const submitted = await fetchLatestApplication(id, 'Submitted');
+        const submitted = await fetchLatestApplication(prospectId, 'Submitted');
         if (!submitted) {
           revert();
           showAlert('alert-box', 'No submitted application ready for scheduling.', 'danger');
@@ -679,7 +722,7 @@ async function handleProspectDrop(evt) {
         }
         try {
           const createRes = await api.post('/interviews', {
-            prospect_id: id,
+            prospect_id: prospectId,
             application_id: submitted.id,
             employer_id: job.employer_id,
             scheduled_time: result.scheduled_time,
@@ -699,7 +742,7 @@ async function handleProspectDrop(evt) {
         break;
       }
       case 'interview_scheduled->interview_passed': {
-        const interview = await fetchPendingInterview(id);
+        const interview = await fetchPendingInterview(prospectId);
         if (!interview) {
           revert();
           showAlert('alert-box', 'No pending interview found for this prospect.', 'danger');
@@ -722,7 +765,7 @@ async function handleProspectDrop(evt) {
         return;
     }
 
-    await api.patch(`/prospects/${id}/status`, payload);
+    await api.patch(`/prospects/${prospectId}/status`, payload);
     showAlert('alert-box', successMessage, 'success');
     await loadProspectsKanban();
   } catch (err) {
@@ -743,6 +786,8 @@ async function loadProspectDetails() {
   const editBtn = document.getElementById('edit-prospect');
   const saveBtn = document.getElementById('save-prospect');
   const cancelBtn = document.getElementById('cancel-edit');
+  const promoteBtn = document.getElementById('promote-prospect');
+  const documentsBtn = document.getElementById('prospect-documents-button');
 
   const setFormValues = (data) => {
     if (!form) return;
@@ -772,12 +817,37 @@ async function loadProspectDetails() {
   };
 
   try {
-    const res = await api.get('/prospects', { params: { limit: 100, page: 1 } });
-    const rows = res.data?.rows || [];
-    const prospect = rows.find((p) => String(p.id) === String(id));
-    if (!prospect) {
-      showAlert('alert-box', 'Prospect not found', 'warning');
-      return;
+    const res = await api.get(`/prospects/${id}`);
+    const prospect = res.data;
+    if (documentsBtn) {
+      documentsBtn.onclick = () => navigateTo(`documents/list.html?prospect_id=${prospect.id}`);
+    }
+    loadProspectDocumentsSummary(prospect.id);
+    if (promoteBtn) {
+      promoteBtn.disabled = (prospect.status || '').toLowerCase() !== 'interview_passed';
+      promoteBtn.onclick = async () => {
+        if ((prospect.status || '').toLowerCase() !== 'interview_passed') {
+          showAlert('alert-box', 'Only prospects who passed interviews can be promoted.', 'warning');
+          return;
+        }
+        const confirmed = await promptKeywordConfirm({
+          title: 'Promote prospect',
+          messageHtml: 'Type <strong>promote</strong> to create a client record for this prospect.',
+          keyword: 'promote',
+          confirmLabel: 'Promote',
+        });
+        if (!confirmed) return;
+        try {
+          const res = await api.post(`/prospects/${prospect.id}/promote`);
+          showAlert('alert-box', 'Prospect promoted to client successfully.', 'success');
+          promoteBtn.disabled = true;
+          if (res.data?.client_id) {
+            setTimeout(() => navigateTo(`clients/details.html?id=${res.data.client_id}`), 1000);
+          }
+        } catch (err) {
+          showAlert('alert-box', err.response?.data?.message || 'Failed to promote prospect', 'danger');
+        }
+      };
     }
     if (detailCard) {
       detailCard.innerHTML = `
