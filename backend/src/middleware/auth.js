@@ -38,7 +38,7 @@ export const PERMISSIONS = {
 
   // Clients (separate status transitions from record management)
   'clients:read':       [Roles.Admin, Roles.Staff],
-  'clients:write':      [Roles.Admin, Roles.Staff],                // create/update/delete
+  'clients:write':      [Roles.Admin],                // create/update/delete
   'clients:transition': [Roles.Admin, Roles.Staff],   // kanban movements
 
   // Documents (file ops can stay broad)

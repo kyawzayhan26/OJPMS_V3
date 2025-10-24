@@ -4,6 +4,13 @@
   introduced by the updated frontend/backend integration.
 */
 
+-- Remove legacy checklist tables (no longer used by the application)
+IF OBJECT_ID('dbo.ProspectChecklistItems', 'U') IS NOT NULL
+    DROP TABLE dbo.ProspectChecklistItems;
+
+IF OBJECT_ID('dbo.ClientChecklistItems', 'U') IS NOT NULL
+    DROP TABLE dbo.ClientChecklistItems;
+
 -- Documents now link directly to prospects (with optional client reference)
 IF OBJECT_ID('dbo.Documents', 'U') IS NULL
 BEGIN
