@@ -10,12 +10,15 @@
 
 SET NOCOUNT ON;
 
--- 1) Drop the existing database (if present)
-IF DB_ID('ojpms_dev') IS NOT NULL
+/* 1) Drop existing connections (required if the DB is in use) */
+USE master;
+GO
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'ojpms_dev')
 BEGIN
-    ALTER DATABASE [ojpms_dev] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE [ojpms_dev];
-END;
+    ALTER DATABASE ojpms_dev SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE ojpms_dev;
+    PRINT 'Existing ojpms_dev database dropped.';
+END
 GO
 
 -- 2) Recreate database and switch context
@@ -225,7 +228,7 @@ CREATE TABLE dbo.Interviews (
     updated_at     DATETIME2     NULL,
     isDeleted      BIT           NOT NULL DEFAULT 0,
     CONSTRAINT FK_Interviews_Prospects FOREIGN KEY (prospect_id) REFERENCES dbo.Prospects(id) ON DELETE CASCADE,
-    CONSTRAINT FK_Interviews_Applications FOREIGN KEY (application_id) REFERENCES dbo.Applications(id) ON DELETE CASCADE,
+    CONSTRAINT FK_Interviews_Applications FOREIGN KEY (application_id) REFERENCES dbo.Applications(id),
     CONSTRAINT FK_Interviews_Employers FOREIGN KEY (employer_id) REFERENCES dbo.Employers(id),
     CONSTRAINT FK_Interviews_Users FOREIGN KEY (recorded_by) REFERENCES dbo.Users(id)
 );
