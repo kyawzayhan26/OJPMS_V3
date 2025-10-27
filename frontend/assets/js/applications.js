@@ -1,25 +1,187 @@
+const APPLICATION_STATUSES = ['Draft', 'Submitted', 'Rejected', 'Shortlisted'];
 
-async function loadApplications(){
-  const el = document.getElementById('apps-list');
-  el.innerHTML = '<div class="text-muted">Loading…</div>';
-  try{
-    const res = await api.get('/api/applications');
-    const q = (document.getElementById('search').value || '').toLowerCase();
-    const rows = (res.data.rows||[]).filter(r => {
-      const s = `${r.prospect_name||''} ${r.job_title||''} ${r.employer_name||''}`.toLowerCase();
-      return !q || s.includes(q);
-    });
-    el.innerHTML = rows.map(r=>`
-      <div class="card shadow-sm">
-        <div class="card-body d-flex justify-content-between align-items-center">
-          <div>
-            <div><strong>${r.prospect_name}</strong> → ${r.job_title || ('Job #' + r.job_id)}</div>
-            <div class="small text-muted">Status: ${r.status} · ${formatDate(r.submitted_at || r.created_at)}</div>
+async function loadApplicationsList() {
+  const container = document.getElementById('apps-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted">Loading applications…</div>';
+  try {
+    const search = document.getElementById('search-input')?.value || '';
+    const status = document.getElementById('status-filter')?.value || '';
+    const prospectId = document.getElementById('prospect-filter')?.value || '';
+    const jobId = document.getElementById('job-filter')?.value || '';
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
+    const params = {
+      search: search || undefined,
+      status: status || undefined,
+      prospect_id: prospectId || undefined,
+      job_id: jobId || undefined,
+      limit: 100,
+      page: 1,
+      sort,
+    };
+    const res = await api.get('/applications', { params });
+    const rows = res.data?.rows || [];
+    container.innerHTML = rows
+      .map(
+        (app) => `
+        <div class="card shadow-sm">
+          <div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold">${app.prospect_name}</div>
+                <div class="small text-muted">${app.job_title || 'Job #' + app.job_id}</div>
+              </div>
+              <span class="badge text-bg-secondary">${app.status}</span>
+            </div>
+            <div class="small text-muted">Submitted: ${app.submitted_at ? formatDate(app.submitted_at) : '—'}</div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="small text-muted">Updated ${formatDate(app.updated_at || app.created_at)}</span>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('applications/details.html?id=' + app.id)}">View</a>
+            </div>
           </div>
-          <a class="btn btn-outline-primary" href="/prospects/details.html?id=${r.prospect_id}">Open</a>
+        </div>`
+      )
+      .join('');
+    if (!rows.length) container.innerHTML = '<div class="text-muted">No applications found.</div>';
+  } catch (err) {
+    container.innerHTML = '<div class="text-danger">Failed to load applications.</div>';
+    showAlert('alert-box', err.response?.data?.message || 'Unable to fetch applications', 'danger');
+  }
+}
+
+function setupApplicationFilters() {
+  ['search-input', 'status-filter', 'prospect-filter', 'job-filter', 'sort-select'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const handler = () => loadApplicationsList();
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', handler);
+  });
+}
+
+function initApplicationForm() {
+  const form = document.getElementById('application-form');
+  if (!form) return;
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    toggleFormDisabled(form, true);
+    const data = formToJSON(form);
+    try {
+      const payload = {
+        prospect_id: Number(data.prospect_id),
+        job_id: Number(data.job_id),
+        status: data.status,
+        notes: data.notes || null,
+        employer_response_at: data.employer_response_at || null,
+      };
+      await api.post('/applications', payload);
+      form.reset();
+      const modalEl = document.getElementById('applicationModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.hide();
+      }
+      showAlert('alert-box', 'Application created.', 'success');
+      await loadApplicationsList();
+    } catch (err) {
+      showAlert('form-alert', err.response?.data?.message || 'Failed to create application', 'danger');
+    } finally {
+      toggleFormDisabled(form, false);
+    }
+  });
+}
+
+async function loadApplicationDetails() {
+  const id = getParam('id');
+  if (!id) {
+    showAlert('alert-box', 'Missing application id', 'danger');
+    return;
+  }
+  const summary = document.getElementById('application-summary');
+  const form = document.getElementById('application-detail-form');
+  const deleteBtn = document.getElementById('delete-application');
+  const editBtn = document.getElementById('edit-application');
+  const saveBtn = document.getElementById('save-application');
+  const cancelBtn = document.getElementById('cancel-edit');
+
+  const setFormValues = (app) => {
+    if (!form) return;
+    form.prospect_id.value = app.prospect_id || '';
+    form.job_id.value = app.job_id || '';
+    form.status.value = app.status || 'Draft';
+    form.notes.value = app.notes || '';
+    form.employer_response_at.value = app.employer_response_at ? app.employer_response_at.split('T')[0] : '';
+    refreshLookupDisplay(form.prospect_id);
+    refreshLookupDisplay(form.job_id);
+  };
+
+  const toggleEdit = (isEditing) => {
+    if (!form) return;
+    Array.from(form.elements).forEach((el) => {
+      if (el.name) {
+        el.disabled = !isEditing && el.tagName !== 'BUTTON';
+      }
+    });
+    if (editBtn) editBtn.classList.toggle('d-none', isEditing);
+    if (saveBtn) saveBtn.classList.toggle('d-none', !isEditing);
+    if (cancelBtn) cancelBtn.classList.toggle('d-none', !isEditing);
+  };
+
+  try {
+    const res = await api.get('/applications', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
+    const rows = res.data?.rows || [];
+    const application = rows.find((a) => String(a.id) === String(id));
+    if (!application) {
+      showAlert('alert-box', 'Application not found', 'warning');
+      return;
+    }
+    if (summary) {
+      summary.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h1 class="h5 mb-1">${application.prospect_name}</h1>
+            <div class="small text-muted">${application.job_title || 'Job #' + application.job_id}</div>
+          </div>
+          <span class="badge text-bg-secondary">${application.status}</span>
         </div>
-      </div>`).join('') || '<div class="text-muted">No applications</div>';
-  }catch(e){
-    el.innerHTML = '<div class="text-danger">Failed to load applications.</div>';
+        <div class="small text-muted mt-2">Submitted ${application.submitted_at ? formatDate(application.submitted_at) : '—'} · Updated ${formatDate(application.updated_at || application.created_at)}</div>`;
+    }
+    setFormValues(application);
+    toggleEdit(false);
+
+    if (editBtn) editBtn.onclick = () => toggleEdit(true);
+    if (cancelBtn) cancelBtn.onclick = () => {
+      setFormValues(application);
+      toggleEdit(false);
+    };
+    if (saveBtn) saveBtn.onclick = async () => {
+      if (!form) return;
+      const payload = {
+        prospect_id: Number(form.prospect_id.value),
+        job_id: Number(form.job_id.value),
+        status: form.status.value,
+        notes: form.notes.value || null,
+        employer_response_at: form.employer_response_at.value || null,
+      };
+      try {
+        await api.put(`/applications/${id}`, payload);
+        showAlert('alert-box', 'Application updated.', 'success');
+        toggleEdit(false);
+        await loadApplicationDetails();
+      } catch (err) {
+        showAlert('alert-box', err.response?.data?.message || 'Failed to update application', 'danger');
+      }
+    };
+    if (deleteBtn) deleteBtn.onclick = async () => {
+      if (!confirm('Delete this application?')) return;
+      try {
+        await api.delete(`/applications/${id}`);
+        showAlert('alert-box', 'Application deleted.', 'success');
+        setTimeout(() => navigateTo('applications/list.html'), 800);
+      } catch (err) {
+        showAlert('alert-box', err.response?.data?.message || 'Failed to delete application', 'danger');
+      }
+    };
+  } catch (err) {
+    showAlert('alert-box', err.response?.data?.message || 'Failed to load application', 'danger');
   }
 }
