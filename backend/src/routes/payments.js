@@ -6,6 +6,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get(
   requireAuth,
   can('payments:read'),
   query('search').optional().isString(),
-  query('client_id').optional().toInt().isInt({ min: 1 }),
+  query('client_id').optional({ checkFalsy: true }).toInt().isInt({ min: 1 }),
   query('status').optional().isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
   query('currency').optional().isLength({ min: 3, max: 3 }),
   query('min_amount').optional().toFloat().isFloat({ min: 0 }),
@@ -170,12 +171,14 @@ router.post(
   body('amount').isFloat({ gt: 0 }),
   body('currency').isLength({ min: 3, max: 3 }),
   body('status').isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
-  body('reference_no').optional().isString(),
-  body('invoice_description').optional().isString(),
+  body('reference_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('invoice_description').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const { client_id, amount, currency, status, reference_no = null, invoice_description = null } = req.body;
+      const { client_id, amount, currency, status } = req.body;
+      const reference_no = normalizeNullable(req.body.reference_no);
+      const invoice_description = normalizeNullable(req.body.invoice_description);
 
       const result = await getPool()
         .request()
@@ -218,24 +221,22 @@ router.put(
   requireAuth,
   can('payments:write'),
   param('id').toInt().isInt({ min: 1 }),
-  body('client_id').optional().toInt().isInt({ min: 1 }),
+  body('client_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
   body('amount').optional().isFloat({ gt: 0 }),
   body('currency').optional().isLength({ min: 3, max: 3 }),
   body('status').optional().isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
-  body('reference_no').optional().isString(),
-  body('invoice_description').optional().isString(),
+  body('reference_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('invoice_description').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = Number(req.params.id);
-      const {
-        client_id = null,
-        amount = null,
-        currency = null,
-        status = null,
-        reference_no = null,
-        invoice_description = null,
-      } = req.body;
+      const client_id = req.body.client_id ?? null;
+      const amount = req.body.amount ?? null;
+      const currency = req.body.currency ?? null;
+      const status = req.body.status ?? null;
+      const reference_no = normalizeNullable(req.body.reference_no);
+      const invoice_description = normalizeNullable(req.body.invoice_description);
       const hasReferenceNo = Object.prototype.hasOwnProperty.call(req.body, 'reference_no');
       const hasInvoiceDescription = Object.prototype.hasOwnProperty.call(req.body, 'invoice_description');
 

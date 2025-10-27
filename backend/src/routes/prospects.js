@@ -7,6 +7,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -167,35 +168,31 @@ router.post(
   can('prospects:write'),
   body('full_name').isString().isLength({ min: 2 }),
   body('contact_phone').isString().isLength({ min: 6 }),
-  body('contact_email').optional().isEmail().normalizeEmail(),
-  body('dob').optional().isISO8601().withMessage('dob must be an ISO date (YYYY-MM-DD)'),
-  body('passport_no').optional().isString().trim(),
-  body('address').optional().isString(),
-  body('highest_qualification').optional().isString(),
+  body('contact_email').optional({ checkFalsy: true, nullable: true }).isEmail().normalizeEmail(),
+  body('dob').optional({ checkFalsy: true, nullable: true }).isISO8601().withMessage('dob must be an ISO date (YYYY-MM-DD)'),
+  body('passport_no').optional({ checkFalsy: true, nullable: true }).isString().trim(),
+  body('address').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('highest_qualification').optional({ checkFalsy: true, nullable: true }).isString(),
   body('status').optional().isIn([
     'enquiry','job_matched','jobmatch_approved',
     'application_drafted','application_submitted',
     'interview_scheduled','interview_passed'
   ]),
-  body('interested_job_id').optional().toInt().isInt({ min: 1 }),
-  body('remarks1').optional().isString(),
-  body('remarks2').optional().isString(),
+  body('interested_job_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('remarks2').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const {
-        full_name,
-        contact_phone,
-        contact_email = null,
-        dob = null,
-        passport_no = null,
-        address = null,
-        highest_qualification = null,
-        status = 'enquiry',
-        interested_job_id = null,
-        remarks1 = null,
-        remarks2 = null
-      } = req.body;
+      const { full_name, contact_phone, status = 'enquiry' } = req.body;
+      const contact_email = normalizeNullable(req.body.contact_email);
+      const dob = normalizeNullable(req.body.dob);
+      const passport_no = normalizeNullable(req.body.passport_no);
+      const address = normalizeNullable(req.body.address);
+      const highest_qualification = normalizeNullable(req.body.highest_qualification);
+      const interested_job_id = req.body.interested_job_id ?? null;
+      const remarks1 = normalizeNullable(req.body.remarks1);
+      const remarks2 = normalizeNullable(req.body.remarks2);
 
       const result = await getPool().request()
         .input('full_name', full_name)
@@ -244,36 +241,34 @@ router.put(
   param('id').toInt().isInt({ min: 1 }),
   body('full_name').optional().isString().isLength({ min: 2 }),
   body('contact_phone').optional().isString().isLength({ min: 6 }),
-  body('contact_email').optional().isEmail().normalizeEmail(),
-  body('dob').optional().isISO8601(),
-  body('passport_no').optional().isString(),
-  body('address').optional().isString(),
-  body('highest_qualification').optional().isString(),
+  body('contact_email').optional({ checkFalsy: true, nullable: true }).isEmail().normalizeEmail(),
+  body('dob').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('passport_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('address').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('highest_qualification').optional({ checkFalsy: true, nullable: true }).isString(),
   body('status').optional().isIn([
     'enquiry','job_matched','jobmatch_approved',
     'application_drafted','application_submitted',
     'interview_scheduled','interview_passed'
   ]),
-  body('interested_job_id').optional().toInt().isInt({ min: 1 }),
-  body('remarks1').optional().isString(),
-  body('remarks2').optional().isString(),
+  body('interested_job_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('remarks2').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const {
-        full_name = null,
-        contact_phone = null,
-        contact_email = null,
-        dob = null,
-        passport_no = null,
-        address = null,
-        highest_qualification = null,
-        status = null,
-        interested_job_id = null,
-        remarks1 = null,
-        remarks2 = null
-      } = req.body;
+      const full_name = normalizeNullable(req.body.full_name) || null;
+      const contact_phone = normalizeNullable(req.body.contact_phone) || null;
+      const contact_email = normalizeNullable(req.body.contact_email);
+      const dob = normalizeNullable(req.body.dob);
+      const passport_no = normalizeNullable(req.body.passport_no);
+      const address = normalizeNullable(req.body.address);
+      const highest_qualification = normalizeNullable(req.body.highest_qualification);
+      const status = req.body.status ?? null;
+      const interested_job_id = req.body.interested_job_id ?? null;
+      const remarks1 = normalizeNullable(req.body.remarks1);
+      const remarks2 = normalizeNullable(req.body.remarks2);
 
       const result = await getPool().request()
         .input('id', id)
@@ -334,7 +329,7 @@ router.patch(
     'application_drafted','application_submitted',
     'interview_scheduled','interview_passed'
   ]),
-  body('remarks').optional().isString(),
+  body('remarks').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     const pool = getPool();
@@ -343,7 +338,7 @@ router.patch(
     try {
       const id = +req.params.id;
       const { to_status } = req.body;
-      let remarks = req.body.remarks != null ? req.body.remarks.toString() : null;
+      let remarks = normalizeNullable(req.body.remarks);
 
       await tx.begin();
       const currentRs = await new sql.Request(tx)

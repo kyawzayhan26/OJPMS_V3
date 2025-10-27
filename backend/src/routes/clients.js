@@ -8,6 +8,18 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
+
+const CLIENT_STATUSES = [
+  'Newly_Promoted',
+  'SmartCard_InProgress',
+  'Visa_InProgress',
+  'Payment_Pending',
+  'FlightBooking_Pending',
+  'Accommodation_Pending',
+  'Approved_For_Deployment',
+  'Departed'
+];
 
 const CLIENT_STATUSES = [
   'Newly_Promoted',
@@ -139,16 +151,18 @@ router.post(
   can('clients:write'),
   body('prospect_id').isInt().toInt(),
   body('full_name').isString().isLength({ min: 2 }),
-  body('passport_no').optional().isString(),
+  body('passport_no').optional({ checkFalsy: true, nullable: true }).isString(),
   body('status').isIn(CLIENT_STATUSES),
-  body('remarks1').optional().isString(),
+  body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     const pool = getPool();
     const tx = new sql.Transaction(pool);
     try {
       await tx.begin();
-      const { prospect_id, full_name, passport_no=null, status, remarks1=null } = req.body;
+      const { prospect_id, full_name, status } = req.body;
+      const passport_no = normalizeNullable(req.body.passport_no);
+      const remarks1 = normalizeNullable(req.body.remarks1);
 
       // Insert client
       const ins = await new sql.Request(tx)
@@ -201,18 +215,16 @@ router.put(
   param('id').toInt().isInt({ min: 1 }),
   body('prospect_id').optional().toInt().isInt({ min: 1 }),
   body('full_name').optional().isString().isLength({ min: 2 }),
-  body('passport_no').optional().isString(),
-  body('remarks1').optional().isString(),
+  body('passport_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = Number(req.params.id);
-      const {
-        prospect_id = null,
-        full_name   = null,
-        passport_no = null,
-        remarks1    = null
-      } = req.body;
+      const prospect_id = req.body.prospect_id ?? null;
+      const full_name = normalizeNullable(req.body.full_name) || null;
+      const passport_no = normalizeNullable(req.body.passport_no);
+      const remarks1 = normalizeNullable(req.body.remarks1);
 
       const result = await getPool().request()
         .input('id', id)
@@ -334,7 +346,7 @@ router.patch(
       await tx.begin();
       const id = Number(req.params.id);
       const to_status = req.body.to_status;
-      let remarks = req.body.remarks != null ? req.body.remarks.toString() : null;
+      let remarks = normalizeNullable(req.body.remarks);
       const context = req.body || {};
       const userId = req.user?.userId || null;
 

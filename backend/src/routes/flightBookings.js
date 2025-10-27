@@ -7,6 +7,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -124,11 +125,12 @@ router.post(
   body('airline').isString().isLength({ min: 2 }),
   body('flight_datetime').isISO8601(),
   body('booking_reference').isString().isLength({ min: 2 }),
-  body('remarks').optional().isString(),
+  body('remarks').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const { client_id, airline, flight_datetime, booking_reference, remarks = null } = req.body;
+      const { client_id, airline, flight_datetime, booking_reference } = req.body;
+      const remarks = normalizeNullable(req.body.remarks);
       const result = await getPool().request()
         .input('client_id', client_id)
         .input('airline', airline)
@@ -167,16 +169,20 @@ router.put(
   requireAuth,
   can('flightBookings:write'),
   param('id').toInt().isInt({ min: 1 }),
-  body('client_id').optional().toInt().isInt({ min: 1 }),
+  body('client_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
   body('airline').optional().isString().isLength({ min: 2 }),
   body('flight_datetime').optional().isISO8601(),
   body('booking_reference').optional().isString().isLength({ min: 2 }),
-  body('remarks').optional().isString(),
+  body('remarks').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = Number(req.params.id);
-      const { client_id = null, airline = null, flight_datetime = null, booking_reference = null, remarks = null } = req.body;
+      const client_id = req.body.client_id ?? null;
+      const airline = normalizeNullable(req.body.airline);
+      const flight_datetime = normalizeNullable(req.body.flight_datetime);
+      const booking_reference = normalizeNullable(req.body.booking_reference);
+      const remarks = normalizeNullable(req.body.remarks);
 
       const result = await getPool().request()
         .input('id', id)

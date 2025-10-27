@@ -288,8 +288,11 @@ function enhanceLookupInputs(root = document) {
     }
     input.dataset.lookupBound = 'true';
 
-    if (input.type === 'number') input.type = 'text';
     if (!input.hasAttribute('inputmode')) input.setAttribute('inputmode', 'numeric');
+    if (input.type === 'number') {
+      if (!input.hasAttribute('step')) input.setAttribute('step', '1');
+      if (!input.hasAttribute('min')) input.setAttribute('min', '1');
+    }
     if (input.hasAttribute('pattern')) input.removeAttribute('pattern');
 
     const datalistId = input.dataset.lookupListId || `lookup-${type}-${Math.random().toString(36).slice(2, 9)}`;

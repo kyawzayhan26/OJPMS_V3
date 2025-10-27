@@ -3,6 +3,7 @@ import { Router } from 'express';
 import { query, body, param } from 'express-validator';
 import fs from 'fs';
 import path from 'path';
+import mime from 'mime-types';
 
 import { getPool } from '../utils/db.js';
 import { requireAuth, can } from '../middleware/auth.js';
@@ -10,6 +11,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { uploadSingleDocument, resolvePublicPath } from '../middleware/upload.js';
 import { likeParam } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const DOCUMENT_TYPES = [
   'Passport',
@@ -157,7 +159,7 @@ router.post(
     .trim()
     .customSanitizer((v) => (v || '').trim())
     .isIn(DOCUMENT_TYPES),
-  body('remarks').optional().isString().trim(),
+  body('remarks').optional({ checkFalsy: true, nullable: true }).isString().trim(),
   body('status').optional().isIn(DOCUMENT_STATUSES),
   handleValidation,
 
@@ -172,7 +174,8 @@ router.post(
       }
 
       const { prospectId } = req.params;
-      const { type, remarks = null, status: statusInput = null } = req.body;
+      const { type, status: statusInput = null } = req.body;
+      const remarks = normalizeNullable(req.body.remarks);
 
       // ensure prospect exists
       const prospectCheck = await getPool().request()
@@ -231,6 +234,59 @@ router.post(
 
       res.status(201).json(row);
     } catch (e) { next(e); }
+  }
+);
+
+router.get(
+  '/:id/download',
+  requireAuth,
+  can('documents:read'),
+  param('id').isInt({ min: 1 }).toInt(),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = +req.params.id;
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query('SELECT file_url FROM Documents WHERE id=@id AND isDeleted=0;');
+      const doc = result.recordset[0];
+      if (!doc?.file_url) {
+        return res.status(404).json({ error: { code: 'not_found', message: 'Document not found' }, requestId: req.id });
+      }
+
+      let rel = doc.file_url;
+      try {
+        if (/^https?:/i.test(rel)) {
+          const url = new URL(rel);
+          rel = url.pathname;
+        }
+      } catch (err) {
+        // ignore malformed URLs
+      }
+
+      rel = String(rel || '').replace(/^\/+/, '');
+      if (rel.startsWith('documents/files/')) {
+        rel = rel.slice('documents/files/'.length);
+      }
+
+      if (!rel) {
+        return res.status(404).json({ error: { code: 'not_found', message: 'File missing on disk' }, requestId: req.id });
+      }
+
+      const abs = resolvePublicPath(rel);
+      if (!fs.existsSync(abs)) {
+        return res.status(404).json({ error: { code: 'not_found', message: 'File missing on disk' }, requestId: req.id });
+      }
+
+      const filename = path.basename(abs) || `document-${id}`;
+      const mimeType = mime.lookup(abs) || 'application/octet-stream';
+      res.setHeader('Content-Type', mimeType);
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.sendFile(abs);
+    } catch (err) {
+      next(err);
+    }
   }
 );
 
@@ -293,13 +349,14 @@ router.patch(
   param('id').isInt({ min: 1 }).toInt(),
   body('status').optional().isIn(DOCUMENT_STATUSES),
   body('file_url').optional().isString(),
-  body('remarks').optional().isString(),
+  body('remarks').optional({ checkFalsy: true, nullable: true }).isString(),
   body('type').optional().isIn(DOCUMENT_TYPES),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const { status = null, file_url = null, remarks = null, type = null } = req.body;
+      const { status = null, file_url = null, type = null } = req.body;
+      const remarks = normalizeNullable(req.body.remarks);
 
       const result = await getPool().request()
         .input('id', id)

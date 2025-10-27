@@ -48,6 +48,17 @@ body {
   display: grid;
   gap: 1rem;
 }
+
+.lookup-display {
+  min-height: 1.25rem;
+}
+
+.document-preview-frame {
+  width: 100%;
+  min-height: 420px;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+}
 @media (min-width: 768px) {
   .card-grid {
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));

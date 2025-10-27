@@ -11,6 +11,124 @@ const DOCUMENT_TYPES = [
 
 const DOCUMENT_STATUSES = ['Pending', 'Uploaded', 'Verified', 'Rejected', 'Expired'];
 
+let currentPreviewUrl = null;
+let currentPreviewBlob = null;
+let currentPreviewFilename = null;
+let currentPreviewId = null;
+
+function cleanupPreviewUrl() {
+  if (currentPreviewUrl) {
+    URL.revokeObjectURL(currentPreviewUrl);
+    currentPreviewUrl = null;
+  }
+}
+
+function parseDispositionFilename(header) {
+  if (!header) return null;
+  const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (utf8 && utf8[1]) {
+    try {
+      return decodeURIComponent(utf8[1]);
+    } catch (err) {
+      return utf8[1];
+    }
+  }
+  const simple = /filename="?([^";]+)"?/i.exec(header);
+  return simple && simple[1] ? simple[1] : null;
+}
+
+function guessExtension(mime) {
+  const map = {
+    'application/pdf': '.pdf',
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+  return map[mime] || '';
+}
+
+function sanitiseFilename(name, fallback = 'document') {
+  const base = (name || fallback || 'document').trim() || 'document';
+  return base.replace(/[\\/:*?"<>|]+/g, '_');
+}
+
+async function fetchDocumentBlob(id) {
+  const response = await api.get(`/documents/${id}/download`, { responseType: 'blob' });
+  return {
+    blob: response.data,
+    filename: parseDispositionFilename(response.headers['content-disposition']),
+    mime: response.headers['content-type'] || response.data?.type || '',
+  };
+}
+
+function triggerFileDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function downloadDocumentFile(id, fallbackName) {
+  try {
+    let blob = null;
+    let filename = null;
+    if (currentPreviewId === id && currentPreviewBlob instanceof Blob) {
+      blob = currentPreviewBlob;
+      filename = currentPreviewFilename;
+    } else {
+      const fetched = await fetchDocumentBlob(id);
+      blob = fetched.blob;
+      filename = fetched.filename;
+    }
+    const safeBase = sanitiseFilename(filename || fallbackName || `document-${id}`);
+    const ext = filename ? '' : guessExtension(blob.type || '');
+    triggerFileDownload(blob, `${safeBase}${ext}`);
+  } catch (err) {
+    showAlert('alert-box', err.response?.data?.message || 'Failed to download document.', 'danger');
+  }
+}
+
+function hideDocumentPreview(message = 'No preview available.') {
+  const card = document.getElementById('document-preview-card');
+  const container = document.getElementById('document-preview');
+  cleanupPreviewUrl();
+  currentPreviewBlob = null;
+  currentPreviewFilename = null;
+  currentPreviewId = null;
+  if (container) container.innerHTML = `<div class="text-muted">${message}</div>`;
+  if (card) card.classList.add('d-none');
+}
+
+async function renderDocumentPreview(id) {
+  const card = document.getElementById('document-preview-card');
+  const container = document.getElementById('document-preview');
+  if (!card || !container) return;
+  container.innerHTML = '<div class="text-muted">Loading preview…</div>';
+  card.classList.remove('d-none');
+  try {
+    const { blob, filename, mime } = await fetchDocumentBlob(id);
+    cleanupPreviewUrl();
+    currentPreviewBlob = blob;
+    currentPreviewFilename = filename;
+    currentPreviewId = id;
+    currentPreviewUrl = URL.createObjectURL(blob);
+    if ((mime || blob.type || '').startsWith('image/')) {
+      container.innerHTML = `<img src="${currentPreviewUrl}" class="img-fluid rounded border" alt="Document preview">`;
+    } else if (mime === 'application/pdf' || blob.type === 'application/pdf') {
+      container.innerHTML = `<iframe src="${currentPreviewUrl}" class="document-preview-frame" title="Document preview"></iframe>`;
+    } else {
+      container.innerHTML = '<div class="text-muted">Preview not available for this file type. Use the download button instead.</div>';
+    }
+  } catch (err) {
+    container.innerHTML = '<div class="text-danger">Unable to load preview.</div>';
+    showAlert('alert-box', err.response?.data?.message || 'Unable to preview document.', 'danger');
+  }
+}
+
 function typeLabel(type) {
   return type || 'Document';
 }
@@ -29,7 +147,7 @@ function buildDocumentCard(doc) {
     : `Prospect #${doc.prospect_id}`;
 
   const fileButton = doc.file_url
-    ? `<a class="btn btn-sm btn-outline-secondary" href="${doc.file_url}" target="_blank" rel="noopener">Download</a>`
+    ? `<button type="button" class="btn btn-sm btn-outline-secondary" data-download-id="${doc.id}" data-download-name="${escapeHtml(typeLabel(doc.type))}">Download</button>`
     : '';
 
   return `
@@ -44,9 +162,9 @@ function buildDocumentCard(doc) {
         </div>
         <div class="small text-muted">Document #${doc.id} · Created ${formatDate(doc.created_at)}</div>
         <div class="small">${escapeHtml(doc.remarks || 'No remarks')}</div>
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <span class="small text-muted">Updated ${doc.updated_at ? formatDate(doc.updated_at) : '—'}</span>
-          <div class="d-flex gap-2">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <span class="small text-muted">Updated ${doc.updated_at ? formatDate(doc.updated_at) : '—'}</span>
+            <div class="d-flex gap-2">
             ${fileButton}
             <a class="btn btn-sm btn-primary" href="${resolveAppPath('documents/details.html?id=' + doc.id)}">View</a>
           </div>
@@ -213,6 +331,19 @@ function toggleDocumentEdit(enabled) {
   if (edit) edit.classList.toggle('d-none', enabled);
 }
 
+document.addEventListener('click', (event) => {
+  const btn = event.target.closest('[data-download-id]');
+  if (!btn) return;
+  event.preventDefault();
+  const id = Number(btn.dataset.downloadId);
+  if (!Number.isFinite(id) || id <= 0) return;
+  downloadDocumentFile(id, btn.dataset.downloadName || 'Document');
+});
+
+window.addEventListener('beforeunload', () => {
+  cleanupPreviewUrl();
+});
+
 async function loadDocumentDetails() {
   const id = getParam('id');
   if (!id) {
@@ -242,13 +373,24 @@ async function loadDocumentDetails() {
       : `Prospect #${doc.prospect_id}`;
     if (timestamps) timestamps.textContent = `Created ${formatDate(doc.created_at)}${doc.updated_at ? ` · Updated ${formatDate(doc.updated_at)}` : ''}`;
     if (download) {
-      if (doc.file_url) {
-        download.href = doc.file_url;
-        download.classList.remove('disabled');
-      } else {
-        download.href = '#';
-        download.classList.add('disabled');
+      download.dataset.downloadId = doc.id;
+      download.dataset.downloadName = typeLabel(doc.type);
+      download.disabled = !doc.file_url;
+    }
+
+    const refreshBtn = document.getElementById('refresh-preview');
+    if (doc.file_url) {
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.onclick = () => renderDocumentPreview(doc.id);
       }
+      renderDocumentPreview(doc.id);
+    } else {
+      if (refreshBtn) {
+        refreshBtn.disabled = true;
+        refreshBtn.onclick = null;
+      }
+      hideDocumentPreview('No document file available.');
     }
 
     setDocumentFormValues(form, doc);

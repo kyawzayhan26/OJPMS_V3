@@ -6,6 +6,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -15,8 +16,8 @@ router.get(
   can('smartCardApplications:read'),
   query('search').optional().isString(),
   query('status').optional().isString(),
-  query('prospect_id').optional().toInt().isInt({ min: 1 }),
-  query('client_id').optional().toInt().isInt({ min: 1 }),
+  query('prospect_id').optional({ checkFalsy: true }).toInt().isInt({ min: 1 }),
+  query('client_id').optional({ checkFalsy: true }).toInt().isInt({ min: 1 }),
   query('page').optional().toInt().isInt({ min: 1 }),
   query('limit').optional().toInt().isInt({ min: 1, max: 100 }),
   query('sort').optional().isString(),
@@ -129,26 +130,23 @@ router.post(
   requireAuth,
   can('smartCardApplications:write'),
   body('prospect_id').isInt().toInt(),
-  body('client_id').optional().toInt().isInt({ min: 1 }),
-  body('card_number').optional().isString(),
+  body('client_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('card_number').optional({ checkFalsy: true, nullable: true }).isString(),
   body('status').isString(),
-  body('submitted_at').optional().isISO8601(),
-  body('issued_at').optional().isISO8601(),
-  body('expires_at').optional().isISO8601(),
-  body('notes').optional().isString(),
+  body('submitted_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('issued_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('expires_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const {
-        prospect_id,
-        client_id = null,
-        card_number = null,
-        status,
-        submitted_at = null,
-        issued_at = null,
-        expires_at = null,
-        notes = null,
-      } = req.body;
+      const { prospect_id, status } = req.body;
+      const client_id = req.body.client_id ?? null;
+      const card_number = normalizeNullable(req.body.card_number);
+      const submitted_at = normalizeNullable(req.body.submitted_at);
+      const issued_at = normalizeNullable(req.body.issued_at);
+      const expires_at = normalizeNullable(req.body.expires_at);
+      const notes = normalizeNullable(req.body.notes);
 
       const result = await getPool().request()
         .input('prospect_id', prospect_id)
@@ -189,26 +187,24 @@ router.put(
   requireAuth,
   can('smartCardApplications:write'),
   param('id').toInt().isInt({ min: 1 }),
-  body('client_id').optional().toInt().isInt({ min: 1 }),
-  body('card_number').optional().isString(),
+  body('client_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('card_number').optional({ checkFalsy: true, nullable: true }).isString(),
   body('status').optional().isString(),
-  body('submitted_at').optional().isISO8601(),
-  body('issued_at').optional().isISO8601(),
-  body('expires_at').optional().isISO8601(),
-  body('notes').optional().isString(),
+  body('submitted_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('issued_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('expires_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const {
-        client_id = null,
-        card_number = null,
-        status = null,
-        submitted_at = null,
-        issued_at = null,
-        expires_at = null,
-        notes = null,
-      } = req.body;
+      const client_id = req.body.client_id ?? null;
+      const card_number = normalizeNullable(req.body.card_number);
+      const status = req.body.status ?? null;
+      const submitted_at = normalizeNullable(req.body.submitted_at);
+      const issued_at = normalizeNullable(req.body.issued_at);
+      const expires_at = normalizeNullable(req.body.expires_at);
+      const notes = normalizeNullable(req.body.notes);
 
       const result = await getPool().request()
         .input('id', id)
