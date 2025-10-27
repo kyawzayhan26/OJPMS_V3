@@ -73,11 +73,20 @@ IF COL_LENGTH('dbo.Clients', 'accommodation_details') IS NULL
 IF COL_LENGTH('dbo.Payments', 'invoice_description') IS NULL
     ALTER TABLE dbo.Payments ADD invoice_description NVARCHAR(500) NULL;
 
--- Ensure ProspectJobMatches uses the [insDeleted] flag referenced in the API
-IF COL_LENGTH('dbo.ProspectJobMatches', 'insDeleted') IS NULL
+-- Ensure ProspectJobMatches uses the [isDeleted] flag referenced in the API
+IF COL_LENGTH('dbo.ProspectJobMatches', 'insDeleted') IS NOT NULL
 BEGIN
-    ALTER TABLE dbo.ProspectJobMatches ADD insDeleted BIT NOT NULL DEFAULT 0;
-    UPDATE dbo.ProspectJobMatches SET insDeleted = 0 WHERE insDeleted IS NULL;
+    EXEC sp_rename 'dbo.ProspectJobMatches.insDeleted', 'isDeleted', 'COLUMN';
+END;
+
+IF COL_LENGTH('dbo.ProspectJobMatches', 'isDeleted') IS NULL
+BEGIN
+    ALTER TABLE dbo.ProspectJobMatches ADD isDeleted BIT NOT NULL DEFAULT 0;
+END;
+
+IF COL_LENGTH('dbo.ProspectJobMatches', 'isDeleted') IS NOT NULL
+BEGIN
+    UPDATE dbo.ProspectJobMatches SET isDeleted = 0 WHERE isDeleted IS NULL;
 END;
 
 -- SmartCard applications table used for direct CRUD screens

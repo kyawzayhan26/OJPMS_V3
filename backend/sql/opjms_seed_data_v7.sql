@@ -333,7 +333,7 @@ BEGIN TRY
     ------------------------------------------------------------
     DECLARE @ProspectJobMatches TABLE (id BIGINT, prospect_id BIGINT, job_id BIGINT);
 
-    INSERT INTO dbo.ProspectJobMatches (prospect_id, job_id, matched_by, status, rationale, is_current, created_at, updated_at, [insDeleted])
+    INSERT INTO dbo.ProspectJobMatches (prospect_id, job_id, matched_by, status, rationale, is_current, created_at, updated_at, isDeleted)
     OUTPUT INSERTED.id, INSERTED.prospect_id, INSERTED.job_id INTO @ProspectJobMatches
     SELECT p.id, j.id, u.id, v.status, v.rationale, v.is_current,
            DATEADD(DAY, -v.days_ago, SYSUTCDATETIME()), DATEADD(DAY, -v.days_ago + 1, SYSUTCDATETIME()), 0
