@@ -101,6 +101,30 @@ router.get(
   }
 );
 
+router.get(
+  '/:id',
+  requireAuth,
+  can('jobs:read'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = +req.params.id;
+      const result = await getPool().request()
+        .input('id', id)
+        .query(`
+          SELECT j.*, e.name AS employer_name
+          FROM Jobs j
+          JOIN Employers e ON e.id = j.employer_id
+          WHERE j.id = @id AND j.isDeleted = 0;
+        `);
+      const row = result.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
+      res.json(row);
+    } catch (err) { next(err); }
+  }
+);
+
 /**
  * POST /jobs
  */
