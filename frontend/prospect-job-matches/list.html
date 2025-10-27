@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prospect Job Matches · OJPMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../assets/css/styles.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+    <script defer src="../assets/js/utils.js"></script>
+    <script defer src="../assets/js/api.js"></script>
+    <script defer src="../assets/js/auth.js"></script>
+    <script defer src="../assets/js/prospectJobMatches.js"></script>
+  </head>
+  <body>
+    <div id="app-navbar"></div>
+    <div class="container py-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h1 class="h4 m-0">Prospect Job Matches</h1>
+          <p class="text-muted small mb-0">Track which prospects have been matched to jobs.</p>
+        </div>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#matchModal">+ New Job Match</button>
+      </div>
+      <div id="alert-box"></div>
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label">Search</label>
+              <input id="search-input" class="form-control" placeholder="Search prospects, jobs or rationale">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              <select id="status-filter" class="form-select">
+                <option value="">All statuses</option>
+                <option value="pending_review">Pending review</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="archived">Archived</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Current</label>
+              <select id="current-filter" class="form-select">
+                <option value="">All matches</option>
+                <option value="current">Current matches only</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex flex-column gap-3" id="match-list"></div>
+    </div>
+
+    <div class="modal fade" id="matchModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="match-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Create Job Match</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="form-alert"></div>
+            <div class="mb-3">
+              <label class="form-label">Prospect</label>
+              <input name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="prospect" required>
+              <div class="form-text">Select the prospect to associate with this match.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Job</label>
+              <input name="job_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="job" required>
+            </div>
+            <div>
+              <label class="form-label">Rationale</label>
+              <textarea name="rationale" class="form-control" rows="3" placeholder="Why is this job a good fit?" required></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Create Match</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        renderNavbar();
+        await requireAuthGuard();
+        setupMatchFilters();
+        initMatchCreateForm();
+        loadMatchList();
+      });
+    </script>
+  </body>
+</html>
