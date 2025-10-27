@@ -76,19 +76,19 @@ FROM dbo.Employers e WHERE e.name=N'GulfBuild LLC' AND NOT EXISTS (SELECT 1 FROM
 /* --- Prospects --- */
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Aye Win', DATEFROMPARTS(2000, 1, 4),
-       N'MM4903402', N'aye.win@example.com', N'+95 9334760738', N'Yangon, Myanmar', N'High School', N'applied', j.id
+       N'MM4903402', N'aye.win@example.com', N'+95 9334760738', N'Yangon, Myanmar', N'High School', N'application_drafted', j.id
 FROM dbo.Jobs j WHERE j.title=N'Warehouse Assistant' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Ko Thazin', DATEFROMPARTS(1996, 5, 8),
-       N'MM8038374', N'ko.thazin@example.com', N'+95 9853041955', N'Yangon, Myanmar', N'Diploma', N'promoted_to_client', j.id
+       N'MM8038374', N'ko.thazin@example.com', N'+95 9853041955', N'Yangon, Myanmar', N'Diploma', N'interview_passed', j.id
 FROM dbo.Jobs j WHERE j.title=N'General Worker' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Sanda Naing', DATEFROMPARTS(1986, 4, 19),
-       N'MM1109031', N'sanda.naing@example.com', N'+95 9969119330', N'Yangon, Myanmar', N'Diploma', N'rejected', j.id
+       N'MM1109031', N'sanda.naing@example.com', N'+95 9969119330', N'Yangon, Myanmar', N'Diploma', N'interview_scheduled', j.id
 FROM dbo.Jobs j WHERE j.title=N'F&B Crew' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Hnin Naing', DATEFROMPARTS(1987, 2, 24),
-       N'MM4612365', N'hnin.naing@example.com', N'+95 9266944844', N'Yangon, Myanmar', N'Bachelor', N'assigned', j.id
+       N'MM4612365', N'hnin.naing@example.com', N'+95 9266944844', N'Yangon, Myanmar', N'Bachelor', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'Manufacturing Operator' AND j.location_country=N'Malaysia';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Hlaing Htet', DATEFROMPARTS(2000, 2, 25),
@@ -96,15 +96,15 @@ SELECT N'Hlaing Htet', DATEFROMPARTS(2000, 2, 25),
 FROM dbo.Jobs j WHERE j.title=N'Welder' AND j.location_country=N'Malaysia';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Pyae Hlaing', DATEFROMPARTS(2002, 3, 5),
-       N'MM8707870', N'pyae.hlaing@example.com', N'+95 9883543540', N'Yangon, Myanmar', N'High School', N'rejected', j.id
+       N'MM8707870', N'pyae.hlaing@example.com', N'+95 9883543540', N'Yangon, Myanmar', N'High School', N'interview_scheduled', j.id
 FROM dbo.Jobs j WHERE j.title=N'Hotel Front Desk' AND j.location_country=N'Thailand';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Hlaing Wai', DATEFROMPARTS(2000, 9, 6),
-       N'MM7067228', N'hlaing.wai@example.com', N'+95 9414797776', N'Yangon, Myanmar', N'Diploma', N'assigned', j.id
+       N'MM7067228', N'hlaing.wai@example.com', N'+95 9414797776', N'Yangon, Myanmar', N'Diploma', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'Kitchen Helper' AND j.location_country=N'Thailand';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Min Su', DATEFROMPARTS(1993, 9, 28),
-       N'MM5855124', N'min.su@example.com', N'+95 9344703907', N'Yangon, Myanmar', N'High School', N'applied', j.id
+       N'MM5855124', N'min.su@example.com', N'+95 9344703907', N'Yangon, Myanmar', N'High School', N'application_drafted', j.id
 FROM dbo.Jobs j WHERE j.title=N'Assembly Technician' AND j.location_country=N'Japan';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Thiha Htwe', DATEFROMPARTS(2004, 7, 7),
@@ -112,11 +112,11 @@ SELECT N'Thiha Htwe', DATEFROMPARTS(2004, 7, 7),
 FROM dbo.Jobs j WHERE j.title=N'Caregiver Assistant' AND j.location_country=N'Japan';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Kyaw Zaw', DATEFROMPARTS(2002, 12, 23),
-       N'MM4514944', N'kyaw.zaw@example.com', N'+95 9481469012', N'Yangon, Myanmar', N'Bachelor', N'assigned', j.id
+       N'MM4514944', N'kyaw.zaw@example.com', N'+95 9481469012', N'Yangon, Myanmar', N'Bachelor', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'Scaffolder' AND j.location_country=N'UAE';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Yu Thazin', DATEFROMPARTS(1991, 12, 10),
-       N'MM9961380', N'yu.thazin@example.com', N'+95 9283758720', N'Yangon, Myanmar', N'Diploma', N'matched', j.id
+       N'MM9961380', N'yu.thazin@example.com', N'+95 9283758720', N'Yangon, Myanmar', N'Diploma', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'Warehouse Assistant' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Thant Htet', DATEFROMPARTS(1997, 11, 21),
@@ -128,23 +128,23 @@ SELECT N'Thura Hlaing', DATEFROMPARTS(1996, 8, 17),
 FROM dbo.Jobs j WHERE j.title=N'F&B Crew' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Hlaing Tun', DATEFROMPARTS(1999, 2, 8),
-       N'MM6279418', N'hlaing.tun@example.com', N'+95 9709004943', N'Yangon, Myanmar', N'Diploma', N'promoted_to_client', j.id
+       N'MM6279418', N'hlaing.tun@example.com', N'+95 9709004943', N'Yangon, Myanmar', N'Diploma', N'interview_passed', j.id
 FROM dbo.Jobs j WHERE j.title=N'Manufacturing Operator' AND j.location_country=N'Malaysia';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Khin Thazin', DATEFROMPARTS(1992, 2, 11),
-       N'MM3396987', N'khin.thazin@example.com', N'+95 9592688426', N'Yangon, Myanmar', N'Bachelor', N'matched', j.id
+       N'MM3396987', N'khin.thazin@example.com', N'+95 9592688426', N'Yangon, Myanmar', N'Bachelor', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'Welder' AND j.location_country=N'Malaysia';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Thura Thura', DATEFROMPARTS(1985, 10, 18),
-       N'MM5408072', N'thura.thura@example.com', N'+95 9702764446', N'Yangon, Myanmar', N'Vocational Cert', N'rejected', j.id
+       N'MM5408072', N'thura.thura@example.com', N'+95 9702764446', N'Yangon, Myanmar', N'Vocational Cert', N'interview_scheduled', j.id
 FROM dbo.Jobs j WHERE j.title=N'Hotel Front Desk' AND j.location_country=N'Thailand';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Zaw Min', DATEFROMPARTS(1992, 10, 8),
-       N'MM9548432', N'zaw.min@example.com', N'+95 9248532577', N'Yangon, Myanmar', N'Vocational Cert', N'assigned', j.id
+       N'MM9548432', N'zaw.min@example.com', N'+95 9248532577', N'Yangon, Myanmar', N'Vocational Cert', N'jobmatch_approved', j.id
 FROM dbo.Jobs j WHERE j.title=N'Kitchen Helper' AND j.location_country=N'Thailand';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Su Hlaing', DATEFROMPARTS(1985, 2, 23),
-       N'MM3564251', N'su.hlaing@example.com', N'+95 9217734861', N'Yangon, Myanmar', N'Diploma', N'rejected', j.id
+       N'MM3564251', N'su.hlaing@example.com', N'+95 9217734861', N'Yangon, Myanmar', N'Diploma', N'interview_scheduled', j.id
 FROM dbo.Jobs j WHERE j.title=N'Assembly Technician' AND j.location_country=N'Japan';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Yu Win', DATEFROMPARTS(2005, 1, 8),
@@ -160,11 +160,11 @@ SELECT N'Soe Soe', DATEFROMPARTS(1995, 2, 17),
 FROM dbo.Jobs j WHERE j.title=N'Warehouse Assistant' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Kaung Thura', DATEFROMPARTS(1992, 5, 22),
-       N'MM9398441', N'kaung.thura@example.com', N'+95 9382811832', N'Yangon, Myanmar', N'Diploma', N'assigned', j.id
+       N'MM9398441', N'kaung.thura@example.com', N'+95 9382811832', N'Yangon, Myanmar', N'Diploma', N'jobmatch_approved', j.id
 FROM dbo.Jobs j WHERE j.title=N'General Worker' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Thiha Thazin', DATEFROMPARTS(2000, 4, 18),
-       N'MM9517169', N'thiha.thazin@example.com', N'+95 9420452650', N'Yangon, Myanmar', N'Diploma', N'matched', j.id
+       N'MM9517169', N'thiha.thazin@example.com', N'+95 9420452650', N'Yangon, Myanmar', N'Diploma', N'job_matched', j.id
 FROM dbo.Jobs j WHERE j.title=N'F&B Crew' AND j.location_country=N'Singapore';
 INSERT INTO dbo.Prospects (full_name, dob, passport_no, contact_email, contact_phone, address, highest_qualification, status, interested_job_id)
 SELECT N'Zaw Nyein', DATEFROMPARTS(1989, 12, 19),
@@ -197,7 +197,7 @@ INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, chan
 SELECT p.id, N'enquiry', N'interview_scheduled', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
 FROM dbo.Prospects p WHERE p.full_name=N'Min Su';
 INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, changed_by, remarks)
-SELECT p.id, N'enquiry', N'applied', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
+SELECT p.id, N'enquiry', N'application_drafted', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
 FROM dbo.Prospects p WHERE p.full_name=N'Thiha Htwe';
 INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, changed_by, remarks)
 SELECT p.id, N'enquiry', N'interview_scheduled', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
@@ -221,7 +221,7 @@ INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, chan
 SELECT p.id, N'enquiry', N'interview_scheduled', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
 FROM dbo.Prospects p WHERE p.full_name=N'Thura Thura';
 INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, changed_by, remarks)
-SELECT p.id, N'enquiry', N'applied', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
+SELECT p.id, N'enquiry', N'application_drafted', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
 FROM dbo.Prospects p WHERE p.full_name=N'Zaw Min';
 INSERT INTO dbo.ProspectStatusHistory (prospect_id, from_status, to_status, changed_by, remarks)
 SELECT p.id, N'enquiry', N'assigned', (SELECT id FROM dbo.Users WHERE email='staff.a@ojpms.local'), N'Auto-seed'
