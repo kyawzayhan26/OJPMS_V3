@@ -80,9 +80,11 @@ function initMatchCreateForm() {
     if (document.getElementById('form-alert')) document.getElementById('form-alert').innerHTML = '';
     try {
       const data = formToJSON(form);
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const jobId = requirePositiveInt(data.job_id, 'Job');
       const payload = {
-        prospect_id: Number(data.prospect_id),
-        job_id: Number(data.job_id),
+        prospect_id: prospectId,
+        job_id: jobId,
         rationale: data.rationale || null,
       };
       await api.post('/prospect-job-matches', payload);
@@ -95,7 +97,7 @@ function initMatchCreateForm() {
       showAlert('alert-box', 'Job match created successfully.', 'success');
       await loadMatchList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create job match', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create job match', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -166,19 +168,20 @@ async function loadMatchDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        job_id: Number(form.job_id.value),
-        status: form.status.value || null,
-        rationale: form.rationale.value || null,
-        is_current: form.is_current.checked,
-      };
       try {
+        const jobId = requirePositiveInt(form.job_id.value, 'Job');
+        const payload = {
+          job_id: jobId,
+          status: form.status.value || null,
+          rationale: form.rationale.value || null,
+          is_current: form.is_current.checked,
+        };
         await api.put(`/prospect-job-matches/${id}`, payload);
         showAlert('alert-box', 'Job match updated.', 'success');
         toggleEdit(false);
         await loadMatchDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update job match', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update job match', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

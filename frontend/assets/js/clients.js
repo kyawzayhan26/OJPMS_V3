@@ -55,9 +55,9 @@ function modalPromise(modalId, formId, alertId, onValidate) {
 }
 
 function promptSmartcardProcess() {
-  return modalPromise('smartcardProcessModal', 'smartcard-process-form', 'smartcard-process-alert', (data, alertBox) => {
-    const id = Number(data.application_id);
-    if (!Number.isInteger(id) || id <= 0) {
+  return modalPromise('smartcardProcessModal', 'smartcard-process-form', 'smartcard-process-alert', (data) => {
+    const id = parsePositiveInt(data.application_id);
+    if (!id) {
       showAlert('smartcard-process-alert', 'Please provide a valid application ID.', 'danger');
       return null;
     }
@@ -67,8 +67,8 @@ function promptSmartcardProcess() {
 
 function promptVisaProcess() {
   return modalPromise('visaProcessModal', 'visa-process-form', 'visa-process-alert', (data) => {
-    const id = Number(data.application_id);
-    if (!Number.isInteger(id) || id <= 0) {
+    const id = parsePositiveInt(data.application_id);
+    if (!id) {
       showAlert('visa-process-alert', 'Please provide a valid application ID.', 'danger');
       return null;
     }
@@ -82,9 +82,9 @@ function promptVisaProcess() {
 
 function promptClientPayment() {
   return modalPromise('clientPaymentModal', 'client-payment-form', 'client-payment-alert', (data) => {
-    const amount = Number(data.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showAlert('client-payment-alert', 'Please enter a valid amount.', 'danger');
+    const amount = parsePositiveDecimal(data.amount);
+    if (amount === null) {
+      showAlert('client-payment-alert', 'Please enter a valid amount greater than zero.', 'danger');
       return null;
     }
     const currency = (data.currency || '').trim().toUpperCase();
@@ -98,7 +98,7 @@ function promptClientPayment() {
       return null;
     }
     return {
-      amount,
+      amount: Number(amount.toFixed(2)),
       currency,
       reference_no,
       invoice_description: data.invoice_description ? data.invoice_description.trim() || null : null,
@@ -151,7 +151,12 @@ async function loadClientsList() {
     const search = document.getElementById('search-input')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
     const prospectRaw = (document.getElementById('prospect-filter')?.value || '').trim();
-    const prospectId = prospectRaw && /^\d+$/.test(prospectRaw) ? Number(prospectRaw) : null;
+    const prospectId = prospectRaw ? parsePositiveInt(prospectRaw) : null;
+    if (prospectRaw && !prospectId) {
+      showAlert('alert-box', 'Prospect filter must be a positive number.', 'warning');
+      container.innerHTML = '<div class="text-muted">Adjust the filters to continue.</div>';
+      return;
+    }
     const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
@@ -216,8 +221,9 @@ function initClientForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
       const payload = {
-        prospect_id: Number(data.prospect_id),
+        prospect_id: prospectId,
         full_name: data.full_name,
         passport_no: data.passport_no || null,
         status: data.status,
@@ -233,7 +239,7 @@ function initClientForm() {
       showAlert('alert-box', 'Client created.', 'success');
       await loadClientsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create client', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create client', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -602,20 +608,21 @@ async function loadClientDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        prospect_id: Number(form.prospect_id.value),
-        full_name: form.full_name.value,
-        passport_no: form.passport_no.value || null,
-        status: form.status.value,
-        remarks1: form.remarks1.value || null,
-      };
       try {
+        const prospectId = requirePositiveInt(form.prospect_id.value, 'Prospect');
+        const payload = {
+          prospect_id: prospectId,
+          full_name: form.full_name.value,
+          passport_no: form.passport_no.value || null,
+          status: form.status.value,
+          remarks1: form.remarks1.value || null,
+        };
         await api.put(`/clients/${id}`, payload);
         showAlert('alert-box', 'Client updated.', 'success');
         toggleEdit(false);
         await loadClientDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update client', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update client', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

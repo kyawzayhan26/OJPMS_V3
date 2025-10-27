@@ -109,10 +109,16 @@ function initInterviewForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const applicationId = requirePositiveInt(data.application_id, 'Application');
+      const employerId = requirePositiveInt(data.employer_id, 'Employer');
+      if (!data.scheduled_time) {
+        throw new Error('Scheduled time is required.');
+      }
       const payload = {
-        prospect_id: Number(data.prospect_id),
-        application_id: Number(data.application_id),
-        employer_id: Number(data.employer_id),
+        prospect_id: prospectId,
+        application_id: applicationId,
+        employer_id: employerId,
         scheduled_time: data.scheduled_time,
         mode: data.mode || null,
         location: data.location || null,
@@ -127,7 +133,7 @@ function initInterviewForm() {
       showAlert('alert-box', 'Interview scheduled.', 'success');
       await loadInterviewsCalendar();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to schedule interview', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to schedule interview', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }

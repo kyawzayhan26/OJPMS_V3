@@ -32,7 +32,14 @@ async function loadFlightBookings() {
     const sort = document.getElementById('sort-select')?.value || 'flight_datetime:desc';
     const params = { limit: 100, page: 1, sort };
     if (search) params.search = search;
-    if (clientId) params.client_id = Number(clientId);
+    if (clientId) {
+      const parsedClient = parsePositiveInt(clientId);
+      if (!parsedClient) {
+        showAlert('alert-box', 'Client filter must be a positive number.', 'warning');
+        return;
+      }
+      params.client_id = parsedClient;
+    }
     if (from) params.from = new Date(from).toISOString();
     if (to) params.to = new Date(to).toISOString();
 
@@ -67,8 +74,12 @@ function initFlightBookingForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const clientId = requirePositiveInt(data.client_id, 'Client');
+      if (!data.flight_datetime) {
+        throw new Error('Flight date and time is required.');
+      }
       const payload = {
-        client_id: Number(data.client_id),
+        client_id: clientId,
         airline: data.airline.trim(),
         flight_datetime: new Date(data.flight_datetime).toISOString(),
         booking_reference: data.booking_reference.trim(),
@@ -84,7 +95,7 @@ function initFlightBookingForm() {
       showAlert('alert-box', 'Flight booking created.', 'success');
       await loadFlightBookings();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create flight booking', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create flight booking', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -151,9 +162,11 @@ async function loadFlightBookingDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const clientIdVal = Number(form.client_id.value);
-      if (!Number.isInteger(clientIdVal) || clientIdVal <= 0) {
-        showAlert('alert-box', 'Client ID must be a positive number.', 'danger');
+      let clientIdVal;
+      try {
+        clientIdVal = requirePositiveInt(form.client_id.value, 'Client');
+      } catch (err) {
+        showAlert('alert-box', err.message, 'danger');
         return;
       }
       const airlineVal = (form.airline.value || '').trim();
@@ -170,19 +183,19 @@ async function loadFlightBookingDetails() {
         showAlert('alert-box', 'Booking reference is required.', 'danger');
         return;
       }
-      const payload = {
-        client_id: clientIdVal,
-        airline: airlineVal,
-        flight_datetime: new Date(form.flight_datetime.value).toISOString(),
-        booking_reference: bookingRefVal,
-        remarks: form.remarks.value ? form.remarks.value.trim() || null : null,
-      };
       try {
+        const payload = {
+          client_id: clientIdVal,
+          airline: airlineVal,
+          flight_datetime: new Date(form.flight_datetime.value).toISOString(),
+          booking_reference: bookingRefVal,
+          remarks: form.remarks.value ? form.remarks.value.trim() || null : null,
+        };
         await api.put(`/flight-bookings/${id}`, payload);
         showAlert('alert-box', 'Flight booking updated.', 'success');
         await loadFlightBookingDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update flight booking', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update flight booking', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

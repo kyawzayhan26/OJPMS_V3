@@ -74,9 +74,14 @@ function initVisaCreateForm() {
     if (document.getElementById('form-alert')) document.getElementById('form-alert').innerHTML = '';
     try {
       const data = formToJSON(form);
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const clientId = data.client_id ? parsePositiveInt(data.client_id) : null;
+      if (data.client_id && !clientId) {
+        throw new Error('Client must be a positive number.');
+      }
       const payload = {
-        prospect_id: Number(data.prospect_id),
-        client_id: data.client_id ? Number(data.client_id) : null,
+        prospect_id: prospectId,
+        client_id: clientId,
         visa_type: data.visa_type ? data.visa_type.trim() || null : null,
         application_no: data.application_no ? data.application_no.trim() || null : null,
         status: data.status || 'Draft',
@@ -94,7 +99,7 @@ function initVisaCreateForm() {
       showAlert('alert-box', 'Visa application created successfully.', 'success');
       await loadVisaApplications();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create visa application', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create visa application', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -172,22 +177,26 @@ async function loadVisaDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        client_id: form.client_id.value ? Number(form.client_id.value) : null,
-        visa_type: form.visa_type.value ? form.visa_type.value.trim() || null : null,
-        application_no: form.application_no.value ? form.application_no.value.trim() || null : null,
-        status: form.status.value || null,
-        submitted_at: form.submitted_at.value ? new Date(form.submitted_at.value).toISOString() : null,
-        approved_at: form.approved_at.value ? new Date(form.approved_at.value).toISOString() : null,
-        notes: form.notes.value ? form.notes.value.trim() || null : null,
-      };
       try {
+        const clientId = form.client_id.value ? parsePositiveInt(form.client_id.value) : null;
+        if (form.client_id.value && !clientId) {
+          throw new Error('Client must be a positive number.');
+        }
+        const payload = {
+          client_id: clientId,
+          visa_type: form.visa_type.value ? form.visa_type.value.trim() || null : null,
+          application_no: form.application_no.value ? form.application_no.value.trim() || null : null,
+          status: form.status.value || null,
+          submitted_at: form.submitted_at.value ? new Date(form.submitted_at.value).toISOString() : null,
+          approved_at: form.approved_at.value ? new Date(form.approved_at.value).toISOString() : null,
+          notes: form.notes.value ? form.notes.value.trim() || null : null,
+        };
         await api.put(`/visa-applications/${id}`, payload);
         showAlert('alert-box', 'Visa application updated.', 'success');
         toggleEdit(false);
         await loadVisaDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update visa application', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update visa application', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

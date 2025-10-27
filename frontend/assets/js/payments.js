@@ -24,12 +24,20 @@ async function loadPaymentsList() {
     const params = {
       search: search || undefined,
       status: status || undefined,
-      client_id: clientId || undefined,
       currency: currency || undefined,
       limit: 100,
       page: 1,
       sort,
     };
+    if (clientId) {
+      const parsed = parsePositiveInt(clientId);
+      if (!parsed) {
+        showAlert('alert-box', 'Client filter must be a positive number.', 'warning');
+        container.innerHTML = '<div class="text-muted">Adjust the client filter to continue.</div>';
+        return;
+      }
+      params.client_id = parsed;
+    }
     const res = await api.get('/payments', { params });
     const rows = res.data?.rows || [];
     container.innerHTML = rows
@@ -78,10 +86,16 @@ function initPaymentForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const clientId = requirePositiveInt(data.client_id, 'Client');
+      const amount = requirePositiveDecimal(data.amount, 'Amount');
+      const currency = (data.currency || '').toUpperCase();
+      if (!currency) {
+        throw new Error('Currency is required.');
+      }
       const payload = {
-        client_id: Number(data.client_id),
-        amount: Number(data.amount),
-        currency: (data.currency || '').toUpperCase(),
+        client_id: clientId,
+        amount: Number(amount.toFixed(2)),
+        currency,
         status: data.status,
         reference_no: data.reference_no ? data.reference_no.trim() || null : null,
         invoice_description: data.invoice_description ? data.invoice_description.trim() || null : null,
@@ -96,7 +110,7 @@ function initPaymentForm() {
       showAlert('alert-box', 'Payment recorded.', 'success');
       await loadPaymentsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to record payment', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to record payment', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -168,35 +182,26 @@ async function loadPaymentDetails() {
     if (saveBtn) {
       saveBtn.onclick = async () => {
         if (!form) return;
-        const clientIdVal = Number(form.client_id.value);
-        if (!Number.isInteger(clientIdVal) || clientIdVal <= 0) {
-          showAlert('alert-box', 'Client ID must be a positive number.', 'danger');
-          return;
-        }
-        const amountVal = Number(form.amount.value);
-        if (!Number.isFinite(amountVal) || amountVal <= 0) {
-          showAlert('alert-box', 'Amount must be greater than zero.', 'danger');
-          return;
-        }
-        const currencyVal = (form.currency.value || '').trim().toUpperCase();
-        if (!currencyVal) {
-          showAlert('alert-box', 'Currency is required.', 'danger');
-          return;
-        }
-        const payload = {
-          client_id: clientIdVal,
-          amount: Number(amountVal.toFixed(2)),
-          currency: currencyVal,
-          status: form.status.value || 'Pending',
-          reference_no: form.reference_no.value ? form.reference_no.value.trim() || null : null,
-          invoice_description: form.invoice_description.value ? form.invoice_description.value.trim() || null : null,
-        };
         try {
+          const clientIdVal = requirePositiveInt(form.client_id.value, 'Client');
+          const amountVal = requirePositiveDecimal(form.amount.value, 'Amount');
+          const currencyVal = (form.currency.value || '').trim().toUpperCase();
+          if (!currencyVal) {
+            throw new Error('Currency is required.');
+          }
+          const payload = {
+            client_id: clientIdVal,
+            amount: Number(amountVal.toFixed(2)),
+            currency: currencyVal,
+            status: form.status.value || 'Pending',
+            reference_no: form.reference_no.value ? form.reference_no.value.trim() || null : null,
+            invoice_description: form.invoice_description.value ? form.invoice_description.value.trim() || null : null,
+          };
           await api.put(`/payments/${id}`, payload);
           showAlert('alert-box', 'Payment updated.', 'success');
           await loadPaymentDetails();
         } catch (err) {
-          showAlert('alert-box', err.response?.data?.message || 'Failed to update payment', 'danger');
+          showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update payment', 'danger');
         }
       };
     }

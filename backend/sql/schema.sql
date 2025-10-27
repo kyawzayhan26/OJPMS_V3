@@ -11,6 +11,18 @@ IF OBJECT_ID('dbo.ProspectChecklistItems', 'U') IS NOT NULL
 IF OBJECT_ID('dbo.ClientChecklistItems', 'U') IS NOT NULL
     DROP TABLE dbo.ClientChecklistItems;
 
+-- Ensure legacy name column exists for compatibility with historical queries
+IF OBJECT_ID('dbo.Users', 'U') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.columns
+        WHERE object_id = OBJECT_ID('dbo.Users')
+          AND name = 'name'
+    )
+BEGIN
+    ALTER TABLE dbo.Users ADD name AS full_name;
+END;
+
 -- Documents now link directly to prospects (with optional client reference)
 IF OBJECT_ID('dbo.Documents', 'U') IS NULL
 BEGIN

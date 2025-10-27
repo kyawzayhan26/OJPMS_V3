@@ -52,6 +52,44 @@ const lookupCache = {};
 const lookupPromises = {};
 const lookupDisplays = new WeakMap();
 
+function parsePositiveInt(value) {
+  const raw = value ?? '';
+  const str = typeof raw === 'number' ? String(raw) : String(raw).trim();
+  if (!str) return null;
+  const num = Number.parseInt(str, 10);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return num;
+}
+
+function requirePositiveInt(value, label = 'ID') {
+  const parsed = parsePositiveInt(value);
+  if (!parsed) {
+    const err = new Error(`${label} is required and must be a positive number.`);
+    err.isValidation = true;
+    throw err;
+  }
+  return parsed;
+}
+
+function parsePositiveDecimal(value) {
+  const raw = value ?? '';
+  const str = typeof raw === 'number' ? String(raw) : String(raw).trim();
+  if (!str) return null;
+  const num = Number.parseFloat(str);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return num;
+}
+
+function requirePositiveDecimal(value, label = 'Amount') {
+  const parsed = parsePositiveDecimal(value);
+  if (parsed === null) {
+    const err = new Error(`${label} is required and must be greater than zero.`);
+    err.isValidation = true;
+    throw err;
+  }
+  return parsed;
+}
+
 function normalizeStatusLabel(status) {
   if (!status) return '';
   return String(status)
@@ -464,6 +502,10 @@ window.enhanceLookupInputs = enhanceLookupInputs;
 window.refreshLookupDisplay = refreshLookupDisplay;
 window.invalidateLookupCache = invalidateLookupCache;
 window.equalizeKanbanColumns = equalizeKanbanColumns;
+window.parsePositiveInt = parsePositiveInt;
+window.requirePositiveInt = requirePositiveInt;
+window.parsePositiveDecimal = parsePositiveDecimal;
+window.requirePositiveDecimal = requirePositiveDecimal;
 
 function escapeHtml(value) {
   return String(value ?? '')

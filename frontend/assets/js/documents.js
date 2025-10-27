@@ -108,7 +108,15 @@ async function loadDocumentsList() {
     if (search) params.search = search;
     if (status) params.status = status;
     if (type) params.type = type;
-    if (prospectId) params.prospect_id = Number(prospectId);
+    if (prospectId) {
+      const parsed = parsePositiveInt(prospectId);
+      if (!parsed) {
+        showAlert('alert-box', 'Prospect filter must be a positive number.', 'warning');
+        container.innerHTML = '<div class="text-muted">Adjust the filters to continue.</div>';
+        return;
+      }
+      params.prospect_id = parsed;
+    }
     const res = await api.get('/documents', { params });
     const rows = res.data?.rows || [];
     if (!rows.length) {
@@ -136,8 +144,9 @@ function initDocumentUpload() {
     if (alertBox) alertBox.innerHTML = '';
 
     const formData = new FormData(form);
-    const prospectId = formData.get('prospect_id');
-    if (!prospectId || Number(prospectId) <= 0) {
+    const prospectIdRaw = formData.get('prospect_id');
+    const prospectId = parsePositiveInt(prospectIdRaw);
+    if (!prospectId) {
       showAlert('form-alert', 'Please enter a valid prospect id.', 'danger');
       return;
     }
@@ -168,7 +177,7 @@ function initDocumentUpload() {
       showAlert('alert-box', 'Document uploaded successfully.', 'success');
       await loadDocumentsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to upload document', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to upload document', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }

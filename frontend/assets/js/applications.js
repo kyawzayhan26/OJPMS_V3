@@ -66,9 +66,11 @@ function initApplicationForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const jobId = requirePositiveInt(data.job_id, 'Job');
       const payload = {
-        prospect_id: Number(data.prospect_id),
-        job_id: Number(data.job_id),
+        prospect_id: prospectId,
+        job_id: jobId,
         status: data.status,
         notes: data.notes || null,
         employer_response_at: data.employer_response_at || null,
@@ -83,7 +85,7 @@ function initApplicationForm() {
       showAlert('alert-box', 'Application created.', 'success');
       await loadApplicationsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create application', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create application', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -155,20 +157,22 @@ async function loadApplicationDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        prospect_id: Number(form.prospect_id.value),
-        job_id: Number(form.job_id.value),
-        status: form.status.value,
-        notes: form.notes.value || null,
-        employer_response_at: form.employer_response_at.value || null,
-      };
       try {
+        const prospectId = requirePositiveInt(form.prospect_id.value, 'Prospect');
+        const jobId = requirePositiveInt(form.job_id.value, 'Job');
+        const payload = {
+          prospect_id: prospectId,
+          job_id: jobId,
+          status: form.status.value,
+          notes: form.notes.value || null,
+          employer_response_at: form.employer_response_at.value || null,
+        };
         await api.put(`/applications/${id}`, payload);
         showAlert('alert-box', 'Application updated.', 'success');
         toggleEdit(false);
         await loadApplicationDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update application', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update application', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

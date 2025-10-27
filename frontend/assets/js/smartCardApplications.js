@@ -74,9 +74,14 @@ function initSmartcardCreateForm() {
     if (document.getElementById('form-alert')) document.getElementById('form-alert').innerHTML = '';
     try {
       const data = formToJSON(form);
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const clientId = data.client_id ? parsePositiveInt(data.client_id) : null;
+      if (data.client_id && !clientId) {
+        throw new Error('Client must be a positive number.');
+      }
       const payload = {
-        prospect_id: Number(data.prospect_id),
-        client_id: data.client_id ? Number(data.client_id) : null,
+        prospect_id: prospectId,
+        client_id: clientId,
         card_number: data.card_number ? data.card_number.trim() || null : null,
         status: data.status || 'Pending',
         submitted_at: data.submitted_at ? new Date(data.submitted_at).toISOString() : null,
@@ -94,7 +99,7 @@ function initSmartcardCreateForm() {
       showAlert('alert-box', 'SmartCard application created successfully.', 'success');
       await loadSmartcardApplications();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create SmartCard application', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create SmartCard application', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -172,22 +177,26 @@ async function loadSmartcardDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        client_id: form.client_id.value ? Number(form.client_id.value) : null,
-        card_number: form.card_number.value ? form.card_number.value.trim() || null : null,
-        status: form.status.value || null,
-        submitted_at: form.submitted_at.value ? new Date(form.submitted_at.value).toISOString() : null,
-        issued_at: form.issued_at.value ? new Date(form.issued_at.value).toISOString() : null,
-        expires_at: form.expires_at.value ? new Date(form.expires_at.value).toISOString() : null,
-        notes: form.notes.value ? form.notes.value.trim() || null : null,
-      };
       try {
+        const clientId = form.client_id.value ? parsePositiveInt(form.client_id.value) : null;
+        if (form.client_id.value && !clientId) {
+          throw new Error('Client must be a positive number.');
+        }
+        const payload = {
+          client_id: clientId,
+          card_number: form.card_number.value ? form.card_number.value.trim() || null : null,
+          status: form.status.value || null,
+          submitted_at: form.submitted_at.value ? new Date(form.submitted_at.value).toISOString() : null,
+          issued_at: form.issued_at.value ? new Date(form.issued_at.value).toISOString() : null,
+          expires_at: form.expires_at.value ? new Date(form.expires_at.value).toISOString() : null,
+          notes: form.notes.value ? form.notes.value.trim() || null : null,
+        };
         await api.put(`/smartcard-applications/${id}`, payload);
         showAlert('alert-box', 'SmartCard application updated.', 'success');
         toggleEdit(false);
         await loadSmartcardDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update SmartCard application', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update SmartCard application', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

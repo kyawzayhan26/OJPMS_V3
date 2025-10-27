@@ -69,8 +69,9 @@ function initJobForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const employerId = requirePositiveInt(data.employer_id, 'Employer');
       const payload = {
-        employer_id: Number(data.employer_id),
+        employer_id: employerId,
         title: data.title,
         description: data.description || null,
         location_country: data.location_country,
@@ -88,7 +89,7 @@ function initJobForm() {
       showAlert('alert-box', 'Job created successfully.', 'success');
       await loadJobsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create job', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create job', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -162,22 +163,23 @@ async function loadJobDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
-      const payload = {
-        employer_id: Number(form.employer_id.value),
-        title: form.title.value,
-        description: form.description.value || null,
-        location_country: form.location_country.value,
-        requirements: form.requirements.value || null,
-        salary: form.salary.value || null,
-        is_active: form.is_active.value === 'true',
-      };
       try {
+        const employerId = requirePositiveInt(form.employer_id.value, 'Employer');
+        const payload = {
+          employer_id: employerId,
+          title: form.title.value,
+          description: form.description.value || null,
+          location_country: form.location_country.value,
+          requirements: form.requirements.value || null,
+          salary: form.salary.value || null,
+          is_active: form.is_active.value === 'true',
+        };
         await api.put(`/jobs/${id}`, payload);
         showAlert('alert-box', 'Job updated.', 'success');
         toggleEdit(false);
         await loadJobDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update job', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update job', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {

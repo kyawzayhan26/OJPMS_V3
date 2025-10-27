@@ -82,6 +82,10 @@ function initProspectCreateForm() {
     toggleFormDisabled(form, true);
     const data = formToJSON(form);
     try {
+      const interestedJobId = data.interested_job_id ? parsePositiveInt(data.interested_job_id) : null;
+      if (data.interested_job_id && !interestedJobId) {
+        throw new Error('Interested job must be a positive number.');
+      }
       const payload = {
         full_name: data.full_name,
         dob: data.dob || null,
@@ -91,7 +95,7 @@ function initProspectCreateForm() {
         address: data.address || null,
         highest_qualification: data.highest_qualification || null,
         status: data.status || 'enquiry',
-        interested_job_id: data.interested_job_id ? Number(data.interested_job_id) : null,
+        interested_job_id: interestedJobId,
         remarks1: data.remarks1 || null,
         remarks2: data.remarks2 || null,
       };
@@ -105,7 +109,7 @@ function initProspectCreateForm() {
       showAlert('alert-box', 'Prospect created successfully.', 'success');
       await loadProspectsList();
     } catch (err) {
-      showAlert('form-alert', err.response?.data?.message || 'Failed to create prospect', 'danger');
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create prospect', 'danger');
     } finally {
       toggleFormDisabled(form, false);
     }
@@ -397,8 +401,8 @@ function openJobMatchModal(prospect) {
       ev.preventDefault();
       if (alertBox) alertBox.innerHTML = '';
       const data = formToJSON(form);
-      const jobId = Number(data.job_id);
-      if (!Number.isInteger(jobId) || jobId <= 0) {
+      const jobId = parsePositiveInt(data.job_id);
+      if (!jobId) {
         showAlert('job-match-alert', 'Please enter a valid job ID.', 'danger');
         return;
       }
@@ -1011,6 +1015,11 @@ async function loadProspectDetails() {
     };
     if (saveBtn) saveBtn.onclick = async () => {
       if (!form) return;
+      const interestedJob = form.interested_job_id.value ? parsePositiveInt(form.interested_job_id.value) : null;
+      if (form.interested_job_id.value && !interestedJob) {
+        showAlert('alert-box', 'Interested job must be a positive number.', 'danger');
+        return;
+      }
       const payload = {
         full_name: form.full_name.value,
         dob: form.dob.value || null,
@@ -1020,7 +1029,7 @@ async function loadProspectDetails() {
         address: form.address.value || null,
         highest_qualification: form.highest_qualification.value || null,
         status: form.status.value,
-        interested_job_id: form.interested_job_id.value ? Number(form.interested_job_id.value) : null,
+        interested_job_id: interestedJob,
         remarks1: form.remarks1.value || null,
         remarks2: form.remarks2.value || null,
       };
@@ -1030,7 +1039,7 @@ async function loadProspectDetails() {
         toggleEdit(false);
         await loadProspectDetails();
       } catch (err) {
-        showAlert('alert-box', err.response?.data?.message || 'Failed to update prospect', 'danger');
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update prospect', 'danger');
       }
     };
     if (deleteBtn) deleteBtn.onclick = async () => {
