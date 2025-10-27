@@ -264,8 +264,8 @@ router.get(
         .query(`
           SELECT TOP 50
             h.*,
-            u.name  AS changed_by_name,
-            u.email AS changed_by_email
+            u.full_name AS changed_by_name,
+            u.email     AS changed_by_email
           FROM ClientStatusHistory h
           LEFT JOIN Users u ON u.id = h.changed_by
           WHERE h.client_id = @id
@@ -273,8 +273,8 @@ router.get(
 
           SELECT TOP 50
             a.*,
-            u.name  AS actor_name,
-            u.email AS actor_email
+            u.full_name AS actor_name,
+            u.email     AS actor_email
           FROM AuditLogs a
           LEFT JOIN Users u ON u.id = a.actor_user_id
           WHERE a.entity = 'Clients' AND a.entity_id = @id

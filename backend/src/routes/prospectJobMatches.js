@@ -189,7 +189,7 @@ router.post(
           UPDATE ProspectJobMatches
              SET is_current = 0,
                  updated_at = SYSUTCDATETIME()
-           WHERE prospect_id = @prospect_id AND [isDeleted] = 0;
+           WHERE prospect_id = @prospect_id AND [insDeleted] = 0;
         END;
 
         INSERT INTO ProspectJobMatches
@@ -308,7 +308,7 @@ router.delete(
         .input('id', id)
         .query(`
           UPDATE ProspectJobMatches
-             SET [isDeleted] = 1,
+             SET [insDeleted] = 1,
                  updated_at = SYSUTCDATETIME()
            WHERE id = @id AND [isDeleted] = 0;
 

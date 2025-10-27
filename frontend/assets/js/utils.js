@@ -252,7 +252,7 @@ function enhanceLookupInputs(root = document) {
 
     if (input.type === 'number') input.type = 'text';
     if (!input.hasAttribute('inputmode')) input.setAttribute('inputmode', 'numeric');
-    if (!input.hasAttribute('pattern')) input.setAttribute('pattern', '\\d*');
+    if (input.hasAttribute('pattern')) input.removeAttribute('pattern');
 
     const datalistId = input.dataset.lookupListId || `lookup-${type}-${Math.random().toString(36).slice(2, 9)}`;
     input.dataset.lookupListId = datalistId;
