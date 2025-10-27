@@ -59,15 +59,17 @@ router.get(
         .input('prospect_id', prospect_id)
         .query(`
           SELECT COUNT(*) AS total
-          FROM Clients
-          WHERE isDeleted = 0
-            ${status       ? 'AND status = @status' : ''}
-            ${prospect_id  ? 'AND prospect_id = @prospect_id' : ''}
+          FROM Clients c
+          LEFT JOIN Prospects p ON p.id = c.prospect_id
+          WHERE c.isDeleted = 0
+            ${status       ? 'AND c.status = @status' : ''}
+            ${prospect_id  ? 'AND c.prospect_id = @prospect_id' : ''}
             AND (
               @q = '%%'
-              OR full_name   LIKE @q
-              OR passport_no LIKE @q
-              OR remarks1    LIKE @q
+              OR c.full_name   LIKE @q
+              OR c.passport_no LIKE @q
+              OR c.remarks1    LIKE @q
+              OR p.full_name   LIKE @q
             );
         `);
       const total = totalRs.recordset[0].total;
@@ -80,16 +82,18 @@ router.get(
         .input('limit', limit)
         .input('offset', offset)
         .query(`
-          SELECT *
-          FROM Clients
-          WHERE isDeleted = 0
-            ${status       ? 'AND status = @status' : ''}
-            ${prospect_id  ? 'AND prospect_id = @prospect_id' : ''}
+          SELECT c.*, p.full_name AS prospect_name
+          FROM Clients c
+          LEFT JOIN Prospects p ON p.id = c.prospect_id
+          WHERE c.isDeleted = 0
+            ${status       ? 'AND c.status = @status' : ''}
+            ${prospect_id  ? 'AND c.prospect_id = @prospect_id' : ''}
             AND (
               @q = '%%'
-              OR full_name   LIKE @q
-              OR passport_no LIKE @q
-              OR remarks1    LIKE @q
+              OR c.full_name   LIKE @q
+              OR c.passport_no LIKE @q
+              OR c.remarks1    LIKE @q
+              OR p.full_name   LIKE @q
             )
           ${orderBy}
           OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY;
@@ -115,9 +119,10 @@ router.get(
         .request()
         .input('id', id)
         .query(`
-          SELECT *
-            FROM Clients
-           WHERE id = @id AND isDeleted = 0;
+          SELECT c.*, p.full_name AS prospect_name
+            FROM Clients c
+            LEFT JOIN Prospects p ON p.id = c.prospect_id
+           WHERE c.id = @id AND c.isDeleted = 0;
         `);
 
       const row = result.recordset[0];
@@ -240,6 +245,44 @@ router.put(
       });
 
       res.json(row);
+    } catch (err) { next(err); }
+  }
+);
+
+router.get(
+  '/:id/history',
+  requireAuth,
+  can('clients:read'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT TOP 50
+            h.*,
+            u.name  AS changed_by_name,
+            u.email AS changed_by_email
+          FROM ClientStatusHistory h
+          LEFT JOIN Users u ON u.id = h.changed_by
+          WHERE h.client_id = @id
+          ORDER BY h.changed_at DESC;
+
+          SELECT TOP 50
+            a.*,
+            u.name  AS actor_name,
+            u.email AS actor_email
+          FROM AuditLogs a
+          LEFT JOIN Users u ON u.id = a.actor_user_id
+          WHERE a.entity = 'Clients' AND a.entity_id = @id
+          ORDER BY a.created_at DESC;
+        `);
+
+      const [statusHistory = [], auditLogs = []] = result.recordsets || [];
+      res.json({ statusHistory, auditLogs });
     } catch (err) { next(err); }
   }
 );

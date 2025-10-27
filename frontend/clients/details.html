@@ -36,8 +36,8 @@
           </div>
           <form class="row g-3" id="client-detail-form">
             <div class="col-md-4">
-              <label class="form-label">Prospect ID</label>
-              <input class="form-control" name="prospect_id" type="number" min="1" required>
+              <label class="form-label">Prospect</label>
+              <input class="form-control" name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="prospect" required>
             </div>
             <div class="col-md-8">
               <label class="form-label">Full name</label>
@@ -66,6 +66,18 @@
             </div>
           </form>
         </div>
+      </div>
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <h2 class="h6 m-0">Status Change History</h2>
+        </div>
+        <div id="client-status-history" class="list-group list-group-flush small"></div>
+      </div>
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <h2 class="h6 m-0">Changes History</h2>
+        </div>
+        <div id="client-audit-log" class="list-group list-group-flush small"></div>
       </div>
     </div>
     <script>

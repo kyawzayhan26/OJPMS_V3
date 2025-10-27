@@ -35,12 +35,12 @@
           </div>
           <form class="row g-3" id="application-detail-form">
             <div class="col-md-4">
-              <label class="form-label">Prospect ID</label>
-              <input class="form-control" name="prospect_id" type="number" min="1" required>
+              <label class="form-label">Prospect</label>
+              <input class="form-control" name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="prospect" required>
             </div>
             <div class="col-md-4">
-              <label class="form-label">Job ID</label>
-              <input class="form-control" name="job_id" type="number" min="1" required>
+              <label class="form-label">Job</label>
+              <input class="form-control" name="job_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="job" required>
             </div>
             <div class="col-md-4">
               <label class="form-label">Status</label>

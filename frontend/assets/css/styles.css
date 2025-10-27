@@ -12,6 +12,7 @@ body {
   display: flex;
   gap: 1rem;
   min-width: max-content;
+  align-items: stretch;
 }
 .kanban-col {
   background: var(--kanban-bg);
@@ -19,6 +20,11 @@ body {
   padding: 12px;
   min-width: 240px;
   min-height: 260px;
+  display: flex;
+  flex-direction: column;
+}
+.kanban-col > *:last-child {
+  margin-bottom: 0;
 }
 .kanban-card {
   background: #fff;

@@ -63,13 +63,13 @@
           <div class="modal-body">
             <div id="form-alert"></div>
             <div class="mb-3">
-              <label class="form-label">Prospect ID</label>
-              <input name="prospect_id" type="number" min="1" class="form-control" required>
-              <div class="form-text">Enter the prospect identifier to associate with this match.</div>
+              <label class="form-label">Prospect</label>
+              <input name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="prospect" required>
+              <div class="form-text">Select the prospect to associate with this match.</div>
             </div>
             <div class="mb-3">
-              <label class="form-label">Job ID</label>
-              <input name="job_id" type="number" min="1" class="form-control" required>
+              <label class="form-label">Job</label>
+              <input name="job_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="job" required>
             </div>
             <div>
               <label class="form-label">Rationale</label>

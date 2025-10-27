@@ -110,6 +110,8 @@ async function loadApplicationDetails() {
     form.status.value = app.status || 'Draft';
     form.notes.value = app.notes || '';
     form.employer_response_at.value = app.employer_response_at ? app.employer_response_at.split('T')[0] : '';
+    refreshLookupDisplay(form.prospect_id);
+    refreshLookupDisplay(form.job_id);
   };
 
   const toggleEdit = (isEditing) => {

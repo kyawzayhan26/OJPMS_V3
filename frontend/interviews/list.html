@@ -48,16 +48,16 @@
             <div id="form-alert"></div>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Prospect ID</label>
-                <input class="form-control" name="prospect_id" type="number" min="1" required>
+                <label class="form-label">Prospect</label>
+                <input class="form-control" name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="prospect" required>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Application ID</label>
-                <input class="form-control" name="application_id" type="number" min="1" required>
+                <label class="form-label">Application</label>
+                <input class="form-control" name="application_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="application" required>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Employer ID</label>
-                <input class="form-control" name="employer_id" type="number" min="1" required>
+                <label class="form-label">Employer</label>
+                <input class="form-control" name="employer_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="employer" required>
               </div>
               <div class="col-md-6">
                 <label class="form-label">Scheduled time</label>

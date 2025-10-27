@@ -117,6 +117,7 @@ async function loadJobDetails() {
     form.is_active.value = job.is_active ? 'true' : 'false';
     form.description.value = job.description || '';
     form.requirements.value = job.requirements || '';
+    refreshLookupDisplay(form.employer_id);
   };
 
   const toggleEdit = (isEditing) => {

@@ -48,6 +48,266 @@ function getUserRole() {
   return getStoredUser()?.role || null;
 }
 
+const lookupCache = {};
+const lookupPromises = {};
+const lookupDisplays = new WeakMap();
+
+function normalizeStatusLabel(status) {
+  if (!status) return '';
+  return String(status)
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function truncateLabel(text, max = 80) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  return clean.length > max ? `${clean.slice(0, max)}…` : clean;
+}
+
+const LOOKUP_FETCHERS = {
+  async prospect() {
+    try {
+      const res = await api.get('/prospects', { params: { limit: 100, page: 1, sort: 'full_name:asc' } });
+      const rows = res.data?.rows || [];
+      return rows.map((p) => {
+        const status = normalizeStatusLabel(p.status);
+        const base = p.full_name || `Prospect #${p.id}`;
+        const parts = [`${base} (#${p.id})`];
+        if (status) parts.push(status);
+        return { value: p.id, label: parts.join(' · ') };
+      });
+    } catch (err) {
+      console.error('Failed to fetch prospect lookup options', err);
+      return [];
+    }
+  },
+  async job() {
+    try {
+      const res = await api.get('/jobs', { params: { limit: 100, page: 1, sort: 'title:asc' } });
+      const rows = res.data?.rows || [];
+      return rows.map((job) => {
+        const extras = [];
+        if (job.location_country) extras.push(job.location_country);
+        const desc = truncateLabel(job.description, 70);
+        if (desc) extras.push(desc);
+        const label = [`${job.title || `Job #${job.id}`} (#${job.id})`]
+          .concat(extras.length ? [`${extras.join(' · ')}`] : [])
+          .join(' · ');
+        return { value: job.id, label };
+      });
+    } catch (err) {
+      console.error('Failed to fetch job lookup options', err);
+      return [];
+    }
+  },
+  async client() {
+    try {
+      const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'full_name:asc' } });
+      const rows = res.data?.rows || [];
+      return rows.map((c) => {
+        const status = normalizeStatusLabel(c.status);
+        const label = [`${c.full_name || `Client #${c.id}`} (#${c.id})`]
+          .concat(status ? [status] : [])
+          .join(' · ');
+        return { value: c.id, label };
+      });
+    } catch (err) {
+      console.error('Failed to fetch client lookup options', err);
+      return [];
+    }
+  },
+  async application() {
+    try {
+      const res = await api.get('/applications', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
+      const rows = res.data?.rows || [];
+      return rows.map((app) => {
+        const prospect = app.prospect_name || `Prospect #${app.prospect_id}`;
+        const job = app.job_title || `Job #${app.job_id}`;
+        const labelParts = [`Application #${app.id}`, `${prospect} → ${job}`];
+        if (app.status) labelParts.push(app.status);
+        return { value: app.id, label: labelParts.join(' · ') };
+      });
+    } catch (err) {
+      console.error('Failed to fetch application lookup options', err);
+      return [];
+    }
+  },
+  async employer() {
+    try {
+      const res = await api.get('/employers', { params: { limit: 100, page: 1, sort: 'name:asc' } });
+      const rows = res.data?.rows || [];
+      return rows.map((employer) => {
+        const bits = [`${employer.name || `Employer #${employer.id}`} (#${employer.id})`];
+        if (employer.country) bits.push(employer.country);
+        return { value: employer.id, label: bits.join(' · ') };
+      });
+    } catch (err) {
+      console.error('Failed to fetch employer lookup options', err);
+      return [];
+    }
+  },
+};
+
+async function getLookupOptions(type) {
+  if (lookupCache[type]) {
+    return lookupCache[type];
+  }
+  const fetcher = LOOKUP_FETCHERS[type];
+  if (!fetcher) return [];
+  if (!lookupPromises[type]) {
+    lookupPromises[type] = fetcher()
+      .then((options) => {
+        lookupCache[type] = options;
+        lookupPromises[type] = null;
+        return options;
+      })
+      .catch((err) => {
+        lookupPromises[type] = null;
+        console.error(`Lookup fetch failed for ${type}`, err);
+        return [];
+      });
+  }
+  return lookupPromises[type];
+}
+
+function getLookupDisplayElement(input) {
+  if (!input) return null;
+  let display = lookupDisplays.get(input);
+  if (display && document.body.contains(display)) return display;
+
+  if (input.dataset.lookupDisplay) {
+    const existing = document.getElementById(input.dataset.lookupDisplay);
+    if (existing) {
+      lookupDisplays.set(input, existing);
+      return existing;
+    }
+  }
+
+  display = document.createElement('div');
+  display.className = 'form-text text-muted lookup-display';
+
+  let anchor = input.nextElementSibling;
+  while (anchor && anchor.nodeType === Node.TEXT_NODE) {
+    anchor = anchor.nextSibling;
+  }
+  if (anchor && anchor.classList?.contains('form-text') && !anchor.classList.contains('lookup-display')) {
+    anchor.after(display);
+  } else {
+    input.after(display);
+  }
+  lookupDisplays.set(input, display);
+  return display;
+}
+
+function populateDatalist(datalist, options) {
+  if (!datalist) return;
+  datalist.innerHTML = '';
+  options.forEach((opt) => {
+    const option = document.createElement('option');
+    option.value = String(opt.value);
+    option.textContent = opt.label;
+    datalist.appendChild(option);
+  });
+}
+
+function updateLookupDisplay(input) {
+  if (!input || !input.dataset.lookup) return;
+  const display = getLookupDisplayElement(input);
+  if (!display) return;
+
+  const type = input.dataset.lookup;
+  const options = lookupCache[type];
+  const value = String(input.value || '').trim();
+  if (!value) {
+    display.textContent = '';
+    return;
+  }
+  if (!options || !options.length) {
+    display.textContent = `Selected ID: ${value}`;
+    return;
+  }
+  const match = options.find((opt) => String(opt.value) === value);
+  display.textContent = match ? match.label : `Selected ID: ${value}`;
+}
+
+async function ensureLookupOptions(type, datalist) {
+  const options = await getLookupOptions(type);
+  populateDatalist(datalist, options);
+  return options;
+}
+
+function enhanceLookupInputs(root = document) {
+  if (!root) return;
+  const inputs = root.querySelectorAll('input[data-lookup]');
+  inputs.forEach((input) => {
+    const type = input.dataset.lookup;
+    if (!type || !LOOKUP_FETCHERS[type]) return;
+    if (input.dataset.lookupBound === 'true') {
+      updateLookupDisplay(input);
+      return;
+    }
+    input.dataset.lookupBound = 'true';
+
+    if (input.type === 'number') input.type = 'text';
+    if (!input.hasAttribute('inputmode')) input.setAttribute('inputmode', 'numeric');
+    if (!input.hasAttribute('pattern')) input.setAttribute('pattern', '\\d*');
+
+    const datalistId = input.dataset.lookupListId || `lookup-${type}-${Math.random().toString(36).slice(2, 9)}`;
+    input.dataset.lookupListId = datalistId;
+    input.setAttribute('list', datalistId);
+
+    let datalist = document.getElementById(datalistId);
+    if (!datalist) {
+      datalist = document.createElement('datalist');
+      datalist.id = datalistId;
+      document.body.appendChild(datalist);
+    }
+
+    getLookupDisplayElement(input);
+
+    const refresh = () => {
+      ensureLookupOptions(type, datalist).then(() => updateLookupDisplay(input));
+    };
+
+    input.addEventListener('focus', refresh, { once: true });
+    input.addEventListener('input', () => updateLookupDisplay(input));
+    input.addEventListener('change', () => updateLookupDisplay(input));
+
+    // Prime options asynchronously without blocking rendering
+    ensureLookupOptions(type, datalist).then(() => updateLookupDisplay(input));
+  });
+}
+
+function refreshLookupDisplay(input) {
+  if (!input) return;
+  updateLookupDisplay(input);
+}
+
+function invalidateLookupCache(type) {
+  if (type) {
+    delete lookupCache[type];
+  } else {
+    Object.keys(lookupCache).forEach((key) => delete lookupCache[key]);
+  }
+}
+
+function equalizeKanbanColumns(root) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  const columns = Array.from(scope.querySelectorAll('.kanban-col'));
+  if (!columns.length) return;
+  let maxHeight = 0;
+  columns.forEach((col) => {
+    col.style.height = 'auto';
+    const height = col.scrollHeight;
+    if (height > maxHeight) maxHeight = height;
+  });
+  columns.forEach((col) => {
+    col.style.height = `${maxHeight}px`;
+  });
+}
+
 function renderNavbar() {
   const user = getStoredUser();
   const path = window.location.pathname;
@@ -195,6 +455,15 @@ function toggleFormDisabled(form, disabled) {
     }
   });
 }
+
+document.addEventListener('DOMContentLoaded', () => {
+  enhanceLookupInputs();
+});
+
+window.enhanceLookupInputs = enhanceLookupInputs;
+window.refreshLookupDisplay = refreshLookupDisplay;
+window.invalidateLookupCache = invalidateLookupCache;
+window.equalizeKanbanColumns = equalizeKanbanColumns;
 
 function escapeHtml(value) {
   return String(value ?? '')

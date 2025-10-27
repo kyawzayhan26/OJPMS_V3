@@ -123,6 +123,7 @@ async function loadPaymentDetails() {
     form.status.value = PAYMENT_STATUSES.includes(pmt.status) ? pmt.status : 'Pending';
     form.reference_no.value = pmt.reference_no || '';
     form.invoice_description.value = pmt.invoice_description || '';
+    refreshLookupDisplay(form.client_id);
   };
 
   const toggleEdit = (editing) => {

@@ -150,12 +150,13 @@ async function loadClientsList() {
   try {
     const search = document.getElementById('search-input')?.value || '';
     const status = document.getElementById('status-filter')?.value || '';
-    const prospect = document.getElementById('prospect-filter')?.value || '';
+    const prospectRaw = (document.getElementById('prospect-filter')?.value || '').trim();
+    const prospectId = prospectRaw && /^\d+$/.test(prospectRaw) ? Number(prospectRaw) : null;
     const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
     const params = {
       search: search || undefined,
       status: status || undefined,
-      prospect_id: prospect || undefined,
+      prospect_id: prospectId || undefined,
       limit: 100,
       page: 1,
       sort,
@@ -163,25 +164,33 @@ async function loadClientsList() {
     const res = await api.get('/clients', { params });
     const rows = res.data?.rows || [];
     container.innerHTML = rows
-      .map(
-        (client) => `
+      .map((client) => {
+        const fullName = escapeHtml(client.full_name || `Client #${client.id}`);
+        const passport = escapeHtml(client.passport_no || '—');
+        const prospectLabel = client.prospect_id
+          ? client.prospect_name
+            ? `${escapeHtml(client.prospect_name)} (#${client.prospect_id})`
+            : `Prospect #${client.prospect_id}`
+          : 'No linked prospect';
+        const created = formatDate(client.created_at);
+        return `
         <div class="card shadow-sm">
           <div class="card-body d-flex flex-column gap-2">
             <div class="d-flex justify-content-between align-items-start">
               <div>
-                <div class="fw-semibold">${client.full_name}</div>
-                <div class="small text-muted">Passport: ${client.passport_no || '—'}</div>
+                <div class="fw-semibold">${fullName}</div>
+                <div class="small text-muted">Passport: ${passport}</div>
               </div>
               <span class="badge text-bg-secondary">${clientStatusLabel(client.status)}</span>
             </div>
-            <div class="small text-muted">Prospect ID: ${client.prospect_id}</div>
+            <div class="small text-muted">Prospect: ${prospectLabel}</div>
             <div class="d-flex justify-content-between align-items-center">
-              <span class="small text-muted">Created ${formatDate(client.created_at)}</span>
+              <span class="small text-muted">Created ${created}</span>
               <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
             </div>
           </div>
-        </div>`
-      )
+        </div>`;
+      })
       .join('');
     if (!rows.length) container.innerHTML = '<div class="text-muted">No clients found.</div>';
   } catch (err) {
@@ -231,6 +240,89 @@ function initClientForm() {
   });
 }
 
+function formatClientActor(name, email, id) {
+  if (name) {
+    return escapeHtml(email ? `${name} (${email})` : name);
+  }
+  if (email) return escapeHtml(email);
+  if (id) return `User #${id}`;
+  return 'System';
+}
+
+function renderClientStatusHistory(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No status changes recorded.</div>';
+  }
+  return entries
+    .map((item) => {
+      const actor = formatClientActor(item.changed_by_name, item.changed_by_email, item.changed_by);
+      const fromLabel = clientStatusLabel(item.from_status) || '—';
+      const toLabel = clientStatusLabel(item.to_status) || '—';
+      const remarks = item.remarks ? `<div class="small mt-1">${escapeHtml(item.remarks)}</div>` : '';
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${fromLabel} → ${toLabel}</div>
+            <div class="small text-muted">${actor}</div>
+            ${remarks}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(item.changed_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function renderClientAuditLogs(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No changes recorded.</div>';
+  }
+  return entries
+    .map((log) => {
+      const actor = formatClientActor(log.actor_name, log.actor_email, log.actor_user_id);
+      const metaParts = [];
+      if (log.method || log.path) metaParts.push(`${log.method || ''} ${log.path || ''}`.trim());
+      if (log.status_code) metaParts.push(`Status ${log.status_code}`);
+      const meta = metaParts.filter(Boolean).join(' · ');
+      let detailBlock = '';
+      if (log.details) {
+        let detailText = typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2);
+        if (detailText.length > 500) detailText = `${detailText.slice(0, 500)}…`;
+        detailBlock = `<pre class="small bg-light border rounded p-2 mt-2 mb-0 overflow-auto">${escapeHtml(detailText)}</pre>`;
+      }
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${escapeHtml(log.action || 'Change')}</div>
+            <div class="small text-muted">${actor}${meta ? ` · ${escapeHtml(meta)}` : ''}</div>
+            ${detailBlock}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(log.created_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+async function loadClientHistory(clientId) {
+  const statusContainer = document.getElementById('client-status-history');
+  const auditContainer = document.getElementById('client-audit-log');
+  if (!statusContainer && !auditContainer) return;
+
+  if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+  if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+
+  try {
+    const res = await api.get(`/clients/${clientId}/history`);
+    const { statusHistory = [], auditLogs = [] } = res.data || {};
+    if (statusContainer) statusContainer.innerHTML = renderClientStatusHistory(statusHistory);
+    if (auditContainer) auditContainer.innerHTML = renderClientAuditLogs(auditLogs);
+  } catch (err) {
+    if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load status history.</div>';
+    if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load audit trail.</div>';
+  }
+}
+
 async function loadClientsKanban() {
   const container = document.getElementById('clients-board');
   if (!container) return;
@@ -267,8 +359,8 @@ async function loadClientsKanban() {
         .map(
           (client) => `
           <div class="kanban-card mb-2" data-id="${client.id}">
-            <div class="fw-semibold">${client.full_name}</div>
-            <div class="small text-muted">Passport: ${client.passport_no || '—'}</div>
+            <div class="fw-semibold">${escapeHtml(client.full_name || `Client #${client.id}`)}</div>
+            <div class="small text-muted">Passport: ${escapeHtml(client.passport_no || '—')}</div>
             <div class="small text-muted">${formatDate(client.created_at)}</div>
             <div class="mt-2 d-flex gap-2">
               <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
@@ -286,16 +378,19 @@ async function loadClientsKanban() {
           const toStatus = evt.to.getAttribute('data-status');
           const fromStatus = evt.from.getAttribute('data-status');
           if (!idAttr || !toStatus || toStatus === fromStatus) return;
+
+          const originList = evt.from;
+          const originalIndex = evt.oldIndex;
+          const revert = () => {
+            const reference = originList.children[originalIndex] || null;
+            originList.insertBefore(evt.item, reference);
+          };
+
           if (Number.isNaN(idNum)) {
             revert();
             showAlert('alert-box', 'Client identifier is invalid.', 'danger');
             return;
           }
-
-          const revert = () => {
-            const reference = evt.from.children[evt.oldIndex] || null;
-            evt.from.insertBefore(evt.item, reference);
-          };
 
           const client = clientCache.get(idAttr) || clientCache.get(idNum);
           if (!client) {
@@ -429,6 +524,8 @@ async function loadClientsKanban() {
         },
       });
     });
+
+    equalizeKanbanColumns(container);
   } catch (err) {
     CLIENT_STATUSES.forEach((status) => {
       const col = document.getElementById(`c-${status}`);
@@ -457,6 +554,7 @@ async function loadClientDetails() {
     form.passport_no.value = client.passport_no || '';
     form.status.value = CLIENT_STATUSES.includes(client.status) ? client.status : CLIENT_STATUSES[0];
     form.remarks1.value = client.remarks1 || '';
+    refreshLookupDisplay(form.prospect_id);
   };
 
   const toggleEdit = (isEditing) => {
@@ -475,12 +573,19 @@ async function loadClientDetails() {
     const res = await api.get(`/clients/${id}`);
     const client = res.data;
     if (summary) {
+      const safeName = escapeHtml(client.full_name || `Client #${client.id}`);
+      const passport = escapeHtml(client.passport_no || '—');
+      const prospectLabel = client.prospect_id
+        ? client.prospect_name
+          ? `${escapeHtml(client.prospect_name)} (#${client.prospect_id})`
+          : `Prospect #${client.prospect_id}`
+        : 'No linked prospect';
       summary.innerHTML = `
         <div class="d-flex justify-content-between align-items-start">
           <div>
-            <h1 class="h5 mb-1">${client.full_name}</h1>
-            <div class="small text-muted">Passport: ${client.passport_no || '—'}</div>
-            <div class="small text-muted">Prospect ID: ${client.prospect_id}</div>
+            <h1 class="h5 mb-1">${safeName}</h1>
+            <div class="small text-muted">Passport: ${passport}</div>
+            <div class="small text-muted">${prospectLabel}</div>
           </div>
           <span class="badge text-bg-secondary">${clientStatusLabel(client.status)}</span>
         </div>
@@ -488,6 +593,7 @@ async function loadClientDetails() {
     }
     setFormValues(client);
     toggleEdit(false);
+    await loadClientHistory(client.id);
 
     if (editBtn) editBtn.onclick = () => toggleEdit(true);
     if (cancelBtn) cancelBtn.onclick = () => {

@@ -122,6 +122,7 @@ async function loadMatchDetails() {
     form.status.value = row.status || '';
     form.is_current.checked = !!row.is_current;
     form.rationale.value = row.rationale || '';
+    refreshLookupDisplay(form.job_id);
   };
 
   const toggleEdit = (editing) => {

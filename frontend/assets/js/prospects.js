@@ -174,6 +174,7 @@ async function loadProspectsKanban() {
         },
       });
     });
+    equalizeKanbanColumns(container);
   } catch (err) {
     PROSPECT_STATUSES.forEach((status) => {
       const col = document.getElementById(`col-${status}`);
@@ -272,6 +273,89 @@ async function loadProspectDocumentsSummary(prospectId) {
     container.innerHTML = summary + remaining;
   } catch (err) {
     container.innerHTML = '<div class="text-danger">Failed to load documents.</div>';
+  }
+}
+
+function formatHistoryActor(name, email, id) {
+  if (name) {
+    return escapeHtml(email ? `${name} (${email})` : name);
+  }
+  if (email) return escapeHtml(email);
+  if (id) return `User #${id}`;
+  return 'System';
+}
+
+function renderProspectStatusHistory(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No status changes recorded.</div>';
+  }
+  return entries
+    .map((item) => {
+      const actor = formatHistoryActor(item.changed_by_name, item.changed_by_email, item.changed_by);
+      const fromLabel = prospectStatusLabel(item.from_status) || '—';
+      const toLabel = prospectStatusLabel(item.to_status) || '—';
+      const remarks = item.remarks ? `<div class="small mt-1">${escapeHtml(item.remarks)}</div>` : '';
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${fromLabel} → ${toLabel}</div>
+            <div class="small text-muted">${actor}</div>
+            ${remarks}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(item.changed_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function renderProspectAuditLogs(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No changes recorded.</div>';
+  }
+  return entries
+    .map((log) => {
+      const actor = formatHistoryActor(log.actor_name, log.actor_email, log.actor_user_id);
+      const metaParts = [];
+      if (log.method || log.path) metaParts.push(`${log.method || ''} ${log.path || ''}`.trim());
+      if (log.status_code) metaParts.push(`Status ${log.status_code}`);
+      const meta = metaParts.filter(Boolean).join(' · ');
+      let detailBlock = '';
+      if (log.details) {
+        let detailText = typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2);
+        if (detailText.length > 500) detailText = `${detailText.slice(0, 500)}…`;
+        detailBlock = `<pre class="small bg-light border rounded p-2 mt-2 mb-0 overflow-auto">${escapeHtml(detailText)}</pre>`;
+      }
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${escapeHtml(log.action || 'Change')}</div>
+            <div class="small text-muted">${actor}${meta ? ` · ${escapeHtml(meta)}` : ''}</div>
+            ${detailBlock}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(log.created_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+async function loadProspectHistory(prospectId) {
+  const statusContainer = document.getElementById('prospect-status-history');
+  const auditContainer = document.getElementById('prospect-audit-log');
+  if (!statusContainer && !auditContainer) return;
+
+  if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+  if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+
+  try {
+    const res = await api.get(`/prospects/${prospectId}/history`);
+    const { statusHistory = [], auditLogs = [] } = res.data || {};
+    if (statusContainer) statusContainer.innerHTML = renderProspectStatusHistory(statusHistory);
+    if (auditContainer) auditContainer.innerHTML = renderProspectAuditLogs(auditLogs);
+  } catch (err) {
+    if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load status history.</div>';
+    if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load audit trail.</div>';
   }
 }
 
@@ -802,6 +886,7 @@ async function loadProspectDetails() {
     form.interested_job_id.value = data.interested_job_id || '';
     form.remarks1.value = data.remarks1 || '';
     form.remarks2.value = data.remarks2 || '';
+    refreshLookupDisplay(form.interested_job_id);
   };
 
   const toggleEdit = (isEditing) => {
@@ -863,6 +948,7 @@ async function loadProspectDetails() {
     }
     setFormValues(prospect);
     toggleEdit(false);
+    loadProspectHistory(prospect.id);
 
     const jobsList = document.getElementById('prospect-jobs');
     if (jobsList) {

@@ -36,8 +36,8 @@
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Client ID</label>
-          <input id="client-filter" class="form-control" type="number" min="1">
+          <label class="form-label">Client</label>
+          <input id="client-filter" class="form-control" type="text" inputmode="numeric" pattern="\\d*" data-lookup="client">
         </div>
         <div class="col-md-2">
           <label class="form-label">Currency</label>
@@ -67,8 +67,8 @@
             <div id="form-alert"></div>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Client ID</label>
-                <input class="form-control" name="client_id" type="number" min="1" required>
+                <label class="form-label">Client</label>
+                <input class="form-control" name="client_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="client" required>
               </div>
               <div class="col-md-4">
                 <label class="form-label">Amount</label>

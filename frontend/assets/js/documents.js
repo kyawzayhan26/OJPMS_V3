@@ -183,6 +183,7 @@ function setDocumentFormValues(form, doc) {
   }
   form.status.value = doc.status || 'Pending';
   form.remarks.value = doc.remarks || '';
+  refreshLookupDisplay(form.prospect_id);
 }
 
 function toggleDocumentEdit(enabled) {

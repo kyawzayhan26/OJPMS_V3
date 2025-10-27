@@ -43,8 +43,16 @@
           </select>
         </div>
         <div class="col-md-2">
-          <label class="form-label">Prospect ID</label>
-          <input id="prospect-filter" class="form-control" type="number" min="1">
+          <label class="form-label">Prospect</label>
+          <input
+            id="prospect-filter"
+            class="form-control"
+            type="text"
+            inputmode="numeric"
+            pattern="\\d*"
+            data-lookup="prospect"
+            placeholder="All prospects"
+          >
         </div>
         <div class="col-md-3">
           <label class="form-label">Sort</label>
@@ -70,8 +78,8 @@
             <div id="form-alert"></div>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Prospect ID</label>
-                <input class="form-control" name="prospect_id" type="number" min="1" required>
+                <label class="form-label">Prospect</label>
+                <input class="form-control" name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="prospect" required>
               </div>
               <div class="col-md-8">
                 <label class="form-label">Full name</label>

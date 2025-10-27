@@ -111,6 +111,7 @@ async function loadFlightBookingDetails() {
     form.flight_datetime.value = toLocalInputValue(row.flight_datetime);
     form.booking_reference.value = row.booking_reference || '';
     form.remarks.value = row.remarks || '';
+    refreshLookupDisplay(form.client_id);
   };
 
   const toggleEdit = (editing) => {

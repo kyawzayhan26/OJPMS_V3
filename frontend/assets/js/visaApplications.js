@@ -125,6 +125,8 @@ async function loadVisaDetails() {
     form.submitted_at.value = toLocalInputValue(row.submitted_at);
     form.approved_at.value = toLocalInputValue(row.approved_at);
     form.notes.value = row.notes || '';
+    refreshLookupDisplay(form.prospect_id);
+    refreshLookupDisplay(form.client_id);
   };
 
   const toggleEdit = (editing) => {

@@ -58,12 +58,12 @@
             <div id="form-alert"></div>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Prospect ID</label>
-                <input name="prospect_id" type="number" min="1" class="form-control" required>
+                <label class="form-label">Prospect</label>
+                <input name="prospect_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="prospect" required>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Client ID</label>
-                <input name="client_id" type="number" min="1" class="form-control">
+                <label class="form-label">Client</label>
+                <input name="client_id" type="text" inputmode="numeric" pattern="\\d*" class="form-control" data-lookup="client">
               </div>
               <div class="col-md-4">
                 <label class="form-label">Status</label>

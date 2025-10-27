@@ -153,6 +153,9 @@ async function loadInterviewDetails() {
     form.scheduled_time.value = iv.scheduled_time ? iv.scheduled_time.substring(0, 16) : '';
     form.mode.value = iv.mode || '';
     form.location.value = iv.location || '';
+    refreshLookupDisplay(form.prospect_id);
+    refreshLookupDisplay(form.application_id);
+    refreshLookupDisplay(form.employer_id);
   };
 
   try {

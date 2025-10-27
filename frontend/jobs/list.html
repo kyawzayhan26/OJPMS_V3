@@ -26,8 +26,8 @@
           <input id="search-input" class="form-control" placeholder="Title, employer, location">
         </div>
         <div class="col-md-2">
-          <label class="form-label">Employer ID</label>
-          <input id="employer-filter" class="form-control" type="number" min="1">
+          <label class="form-label">Employer</label>
+          <input id="employer-filter" class="form-control" type="text" inputmode="numeric" pattern="\\d*" data-lookup="employer">
         </div>
         <div class="col-md-3">
           <label class="form-label">Country</label>
@@ -67,8 +67,8 @@
             <div id="form-alert"></div>
             <div class="row g-3">
               <div class="col-md-4">
-                <label class="form-label">Employer ID</label>
-                <input class="form-control" name="employer_id" type="number" min="1" required>
+                <label class="form-label">Employer</label>
+                <input class="form-control" name="employer_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="employer" required>
               </div>
               <div class="col-md-8">
                 <label class="form-label">Job title</label>

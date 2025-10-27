@@ -125,6 +125,8 @@ async function loadSmartcardDetails() {
     form.issued_at.value = toLocalInputValue(row.issued_at);
     form.expires_at.value = toLocalInputValue(row.expires_at);
     form.notes.value = row.notes || '';
+    refreshLookupDisplay(form.prospect_id);
+    refreshLookupDisplay(form.client_id);
   };
 
   const toggleEdit = (editing) => {

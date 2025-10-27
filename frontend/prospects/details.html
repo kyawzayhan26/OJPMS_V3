@@ -85,8 +85,8 @@
                   </select>
                 </div>
                 <div class="col-md-6">
-                  <label class="form-label">Interested job ID</label>
-                  <input class="form-control" name="interested_job_id" type="number" min="1">
+                  <label class="form-label">Interested job</label>
+                  <input class="form-control" name="interested_job_id" type="text" inputmode="numeric" pattern="\\d*" data-lookup="job">
                 </div>
                 <div class="col-md-6">
                   <label class="form-label">Remarks 1</label>
@@ -124,11 +124,23 @@
               <ul class="list-group list-group-flush" id="prospect-applications"></ul>
             </div>
           </div>
-          <div class="card shadow-sm">
+          <div class="card shadow-sm mb-3">
             <div class="card-body">
               <h2 class="h6">Interviews</h2>
               <ul class="list-group list-group-flush" id="prospect-interviews"></ul>
             </div>
+          </div>
+          <div class="card shadow-sm mb-3">
+            <div class="card-body">
+              <h2 class="h6 m-0">Status Change History</h2>
+            </div>
+            <div id="prospect-status-history" class="list-group list-group-flush small"></div>
+          </div>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <h2 class="h6 m-0">Changes History</h2>
+            </div>
+            <div id="prospect-audit-log" class="list-group list-group-flush small"></div>
           </div>
         </div>
       </div>
