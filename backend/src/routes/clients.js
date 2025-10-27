@@ -21,17 +21,6 @@ const CLIENT_STATUSES = [
   'Departed'
 ];
 
-const CLIENT_STATUSES = [
-  'Newly_Promoted',
-  'SmartCard_InProgress',
-  'Visa_InProgress',
-  'Payment_Pending',
-  'FlightBooking_Pending',
-  'Accommodation_Pending',
-  'Approved_For_Deployment',
-  'Departed'
-];
-
 const router = Router();
 
 /**
