@@ -206,35 +206,75 @@ router.put(
   body('full_name').optional().isString().isLength({ min: 2 }),
   body('passport_no').optional({ checkFalsy: true, nullable: true }).isString(),
   body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('status').optional().isIn(CLIENT_STATUSES),
   handleValidation,
   async (req, res, next) => {
+    const pool = getPool();
+    const tx = new sql.Transaction(pool);
     try {
       const id = Number(req.params.id);
+      await tx.begin();
+
+      const existingRs = await new sql.Request(tx)
+        .input('id', sql.BigInt, id)
+        .query('SELECT TOP 1 * FROM Clients WHERE id=@id AND isDeleted=0;');
+      const existing = existingRs.recordset[0];
+      if (!existing) {
+        await tx.rollback();
+        return res.status(404).json({ message: 'Not found' });
+      }
+
       const prospect_id = req.body.prospect_id ?? null;
       const full_name = normalizeNullable(req.body.full_name) || null;
       const passport_no = normalizeNullable(req.body.passport_no);
       const remarks1 = normalizeNullable(req.body.remarks1);
+      const status = req.body.status ?? null;
 
-      const result = await getPool().request()
-        .input('id', id)
-        .input('prospect_id', prospect_id)
-        .input('full_name', full_name)
-        .input('passport_no', passport_no)
-        .input('remarks1', remarks1)
+      const updateRs = await new sql.Request(tx)
+        .input('id', sql.BigInt, id)
+        .input('prospect_id', sql.BigInt, prospect_id)
+        .input('full_name', sql.NVarChar, full_name)
+        .input('passport_no', sql.NVarChar, passport_no)
+        .input('remarks1', sql.NVarChar, remarks1)
+        .input('status', sql.NVarChar, status)
         .query(`
           UPDATE Clients
              SET prospect_id = COALESCE(@prospect_id, prospect_id),
                  full_name   = COALESCE(@full_name, full_name),
                  passport_no = COALESCE(@passport_no, passport_no),
                  remarks1    = COALESCE(@remarks1, remarks1),
+                 status      = COALESCE(@status, status),
                  updated_at  = SYSUTCDATETIME()
            WHERE id=@id AND isDeleted=0;
 
           SELECT * FROM Clients WHERE id=@id;
         `);
 
-      const row = result.recordset[0];
-      if (!row) return res.status(404).json({ message: 'Not found' });
+      const row = updateRs.recordset[0];
+      if (!row) {
+        await tx.rollback();
+        return res.status(404).json({ message: 'Not found' });
+      }
+
+      const statusChanged = typeof status === 'string' && status !== existing.status;
+      if (statusChanged) {
+        const fromStatus = existing.status || 'Newly_Promoted';
+        const toStatus = row.status || status || fromStatus;
+        await new sql.Request(tx)
+          .input('client_id', sql.BigInt, id)
+          .input('from_status', sql.NVarChar, fromStatus)
+          .input('to_status', sql.NVarChar, toStatus)
+          .input('changed_by', sql.BigInt, req.user?.userId || null)
+          .input('remarks', sql.NVarChar, 'Status updated from client details form.')
+          .query(`
+            INSERT INTO ClientStatusHistory
+              (client_id, from_status, to_status, changed_by, changed_at, remarks)
+            VALUES
+              (@client_id, @from_status, @to_status, @changed_by, SYSUTCDATETIME(), @remarks);
+          `);
+      }
+
+      await tx.commit();
 
       await writeAudit({
         req,
@@ -246,6 +286,47 @@ router.put(
       });
 
       res.json(row);
+    } catch (err) {
+      try { await tx.rollback(); } catch (_) {}
+      next(err);
+    }
+  }
+);
+
+router.get(
+  '/:id/history',
+  requireAuth,
+  can('clients:read'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT TOP 50
+            h.*,
+            COALESCE(u.full_name, u.name) AS changed_by_name,
+            u.email                       AS changed_by_email
+          FROM ClientStatusHistory h
+          LEFT JOIN Users u ON u.id = h.changed_by
+          WHERE h.client_id = @id
+          ORDER BY h.changed_at DESC;
+
+          SELECT TOP 50
+            a.*,
+            COALESCE(u.full_name, u.name) AS actor_name,
+            u.email                       AS actor_email
+          FROM AuditLogs a
+          LEFT JOIN Users u ON u.id = a.actor_user_id
+          WHERE a.entity = 'Clients' AND a.entity_id = @id
+          ORDER BY a.created_at DESC;
+        `);
+
+      const [statusHistory = [], auditLogs = []] = result.recordsets || [];
+      res.json({ statusHistory, auditLogs });
     } catch (err) { next(err); }
   }
 );
@@ -375,15 +456,16 @@ router.patch(
       switch (transitionKey) {
         case 'Newly_Promoted->SmartCard_InProgress': {
           const smartcard = context.smartcard || {};
-          const applicationId = Number(smartcard.application_id);
-          if (!Number.isInteger(applicationId) || applicationId <= 0) {
+          const applicationIdRaw = smartcard.application_id ?? '';
+          const applicationId = applicationIdRaw ? String(applicationIdRaw).trim() : '';
+          if (!applicationId) {
             await tx.rollback();
             return res.status(400).json({ message: 'application_id is required for SmartCard processing.' });
           }
           const scRemarks = smartcard.remarks ? smartcard.remarks.toString().trim() : null;
           const scInsert = await new sql.Request(tx)
             .input('client_id', sql.BigInt, id)
-            .input('application_id', sql.BigInt, applicationId)
+            .input('application_id', sql.NVarChar, applicationId)
             .input('status', sql.NVarChar, 'Drafted')
             .input('attempt_count', sql.Int, 0)
             .input('remarks', sql.NVarChar, scRemarks)
@@ -395,13 +477,14 @@ router.patch(
                 (@client_id, @application_id, @status, @attempt_count, @remarks, SYSUTCDATETIME(), SYSUTCDATETIME(), 0);
             `);
           meta.smartcard_process = scInsert.recordset[0];
-          if (!remarks) remarks = scRemarks || `SmartCard process started (application #${applicationId}).`;
+          if (!remarks) remarks = scRemarks || `SmartCard process started (application ${applicationId}).`;
           break;
         }
         case 'SmartCard_InProgress->Visa_InProgress': {
           const visa = context.visa || {};
-          const applicationId = Number(visa.application_id);
-          if (!Number.isInteger(applicationId) || applicationId <= 0) {
+          const applicationIdRaw = visa.application_id ?? '';
+          const applicationId = applicationIdRaw ? String(applicationIdRaw).trim() : '';
+          if (!applicationId) {
             await tx.rollback();
             return res.status(400).json({ message: 'application_id is required for Visa processing.' });
           }
@@ -409,7 +492,7 @@ router.patch(
           const visaRemarks = visa.remarks ? visa.remarks.toString().trim() : null;
           const visaInsert = await new sql.Request(tx)
             .input('client_id', sql.BigInt, id)
-            .input('application_id', sql.BigInt, applicationId)
+            .input('application_id', sql.NVarChar, applicationId)
             .input('visa_type', sql.NVarChar, visaType)
             .input('status', sql.NVarChar, 'Drafted')
             .input('attempt_count', sql.Int, 0)
@@ -422,7 +505,7 @@ router.patch(
                 (@client_id, @application_id, @visa_type, @status, @attempt_count, @remarks, SYSUTCDATETIME(), SYSUTCDATETIME(), 0);
             `);
           meta.visa_process = visaInsert.recordset[0];
-          if (!remarks) remarks = visaRemarks || `Visa process started (application #${applicationId}).`;
+          if (!remarks) remarks = visaRemarks || `Visa process started (application ${applicationId}).`;
           break;
         }
         case 'Visa_InProgress->Payment_Pending': {

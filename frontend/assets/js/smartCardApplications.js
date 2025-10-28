@@ -81,7 +81,6 @@ function initSmartcardCreateForm() {
       }
       const payload = {
         prospect_id: prospectId,
-        client_id: clientId,
         card_number: data.card_number ? data.card_number.trim() || null : null,
         status: data.status || 'Pending',
         submitted_at: data.submitted_at ? new Date(data.submitted_at).toISOString() : null,
@@ -89,6 +88,7 @@ function initSmartcardCreateForm() {
         expires_at: data.expires_at ? new Date(data.expires_at).toISOString() : null,
         notes: data.notes ? data.notes.trim() || null : null,
       };
+      if (clientId !== null) payload.client_id = clientId;
       await api.post('/smartcard-applications', payload);
       form.reset();
       const modalEl = document.getElementById('smartcardModal');
@@ -183,7 +183,6 @@ async function loadSmartcardDetails() {
           throw new Error('Client must be a positive number.');
         }
         const payload = {
-          client_id: clientId,
           card_number: form.card_number.value ? form.card_number.value.trim() || null : null,
           status: form.status.value || null,
           submitted_at: form.submitted_at.value ? new Date(form.submitted_at.value).toISOString() : null,
@@ -191,6 +190,7 @@ async function loadSmartcardDetails() {
           expires_at: form.expires_at.value ? new Date(form.expires_at.value).toISOString() : null,
           notes: form.notes.value ? form.notes.value.trim() || null : null,
         };
+        if (clientId !== null) payload.client_id = clientId;
         await api.put(`/smartcard-applications/${id}`, payload);
         showAlert('alert-box', 'SmartCard application updated.', 'success');
         toggleEdit(false);

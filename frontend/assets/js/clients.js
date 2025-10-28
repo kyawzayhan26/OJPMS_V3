@@ -56,24 +56,24 @@ function modalPromise(modalId, formId, alertId, onValidate) {
 
 function promptSmartcardProcess() {
   return modalPromise('smartcardProcessModal', 'smartcard-process-form', 'smartcard-process-alert', (data) => {
-    const id = parsePositiveInt(data.application_id);
-    if (!id) {
-      showAlert('smartcard-process-alert', 'Please provide a valid application ID.', 'danger');
+    const reference = (data.application_id || '').trim();
+    if (!reference) {
+      showAlert('smartcard-process-alert', 'Application reference is required.', 'danger');
       return null;
     }
-    return { application_id: id, remarks: data.remarks ? data.remarks.trim() || null : null };
+    return { application_id: reference, remarks: data.remarks ? data.remarks.trim() || null : null };
   });
 }
 
 function promptVisaProcess() {
   return modalPromise('visaProcessModal', 'visa-process-form', 'visa-process-alert', (data) => {
-    const id = parsePositiveInt(data.application_id);
-    if (!id) {
-      showAlert('visa-process-alert', 'Please provide a valid application ID.', 'danger');
+    const reference = (data.application_id || '').trim();
+    if (!reference) {
+      showAlert('visa-process-alert', 'Application reference is required.', 'danger');
       return null;
     }
     return {
-      application_id: id,
+      application_id: reference,
       visa_type: data.visa_type ? data.visa_type.trim() || null : null,
       remarks: data.remarks ? data.remarks.trim() || null : null,
     };

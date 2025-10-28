@@ -80,6 +80,21 @@ function parsePositiveDecimal(value) {
   return num;
 }
 
+function normalizeDateOnly(value) {
+  if (value === undefined || value === null) return null;
+  const str = typeof value === 'string' ? value.trim() : String(value);
+  if (!str) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    return str;
+  }
+  const parsed = Date.parse(str);
+  if (Number.isNaN(parsed)) return null;
+  const date = new Date(parsed);
+  if (Number.isNaN(date.getTime())) return null;
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return offsetDate.toISOString().slice(0, 10);
+}
+
 function requirePositiveDecimal(value, label = 'Amount') {
   const parsed = parsePositiveDecimal(value);
   if (parsed === null) {
@@ -509,6 +524,7 @@ window.parsePositiveInt = parsePositiveInt;
 window.requirePositiveInt = requirePositiveInt;
 window.parsePositiveDecimal = parsePositiveDecimal;
 window.requirePositiveDecimal = requirePositiveDecimal;
+window.normalizeDateOnly = normalizeDateOnly;
 
 function escapeHtml(value) {
   return String(value ?? '')

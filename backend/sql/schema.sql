@@ -143,9 +143,9 @@ END;
 IF OBJECT_ID('dbo.SmartCardProcesses', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.SmartCardProcesses (
-        id             BIGINT        IDENTITY(1,1) PRIMARY KEY,
-        client_id      BIGINT        NOT NULL,
-        application_id BIGINT        NOT NULL,
+        id             BIGINT         IDENTITY(1,1) PRIMARY KEY,
+        client_id      BIGINT         NOT NULL,
+        application_id NVARCHAR(100) NOT NULL,
         status         NVARCHAR(50)  NOT NULL DEFAULT 'Drafted',
         attempt_count  INT           NOT NULL DEFAULT 0,
         remarks        NVARCHAR(MAX) NULL,
@@ -155,13 +155,31 @@ BEGIN
     );
 END;
 
+IF EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'dbo'
+      AND TABLE_NAME = 'SmartCardProcesses'
+      AND COLUMN_NAME = 'application_id'
+      AND DATA_TYPE <> 'nvarchar'
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_SmartCardProcesses_Applications'
+    )
+    BEGIN
+        ALTER TABLE dbo.SmartCardProcesses DROP CONSTRAINT FK_SmartCardProcesses_Applications;
+    END;
+    ALTER TABLE dbo.SmartCardProcesses ALTER COLUMN application_id NVARCHAR(100) NOT NULL;
+END;
+
 -- VisaProcesses capture downstream workflow actions
 IF OBJECT_ID('dbo.VisaProcesses', 'U') IS NULL
 BEGIN
     CREATE TABLE dbo.VisaProcesses (
-        id             BIGINT        IDENTITY(1,1) PRIMARY KEY,
-        client_id      BIGINT        NOT NULL,
-        application_id BIGINT        NOT NULL,
+        id             BIGINT         IDENTITY(1,1) PRIMARY KEY,
+        client_id      BIGINT         NOT NULL,
+        application_id NVARCHAR(100) NOT NULL,
         visa_type      NVARCHAR(100) NULL,
         status         NVARCHAR(50)  NOT NULL DEFAULT 'Drafted',
         attempt_count  INT           NOT NULL DEFAULT 0,
@@ -170,6 +188,24 @@ BEGIN
         updated_at     DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
         isDeleted      BIT           NOT NULL DEFAULT 0
     );
+END;
+
+IF EXISTS (
+    SELECT 1
+    FROM INFORMATION_SCHEMA.COLUMNS
+    WHERE TABLE_SCHEMA = 'dbo'
+      AND TABLE_NAME = 'VisaProcesses'
+      AND COLUMN_NAME = 'application_id'
+      AND DATA_TYPE <> 'nvarchar'
+)
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_VisaProcesses_Applications'
+    )
+    BEGIN
+        ALTER TABLE dbo.VisaProcesses DROP CONSTRAINT FK_VisaProcesses_Applications;
+    END;
+    ALTER TABLE dbo.VisaProcesses ALTER COLUMN application_id NVARCHAR(100) NOT NULL;
 END;
 
 -- Flight bookings table powering the new module and client transition step

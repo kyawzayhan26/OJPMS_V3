@@ -481,10 +481,10 @@ BEGIN TRY
     ------------------------------------------------------------
     -- Visa applications (5 records)
     ------------------------------------------------------------
-    DECLARE @VisaApps TABLE (id BIGINT, client_id BIGINT, visa_type NVARCHAR(100));
+    DECLARE @VisaApps TABLE (id BIGINT, client_id BIGINT, visa_type NVARCHAR(100), application_no NVARCHAR(100));
 
     INSERT INTO dbo.VisaApplications (prospect_id, client_id, visa_type, application_no, status, submitted_at, approved_at, notes, created_at, updated_at, isDeleted)
-    OUTPUT INSERTED.id, INSERTED.client_id, INSERTED.visa_type INTO @VisaApps
+    OUTPUT INSERTED.id, INSERTED.client_id, INSERTED.visa_type, INSERTED.application_no INTO @VisaApps
     SELECT p.id, c.id, v.visa_type, v.application_no, v.status,
            DATEADD(DAY, -v.submitted_days, SYSUTCDATETIME()),
            v.approved_at,
@@ -506,7 +506,7 @@ BEGIN TRY
     -- SmartCard processes (5 records)
     ------------------------------------------------------------
     INSERT INTO dbo.SmartCardProcesses (client_id, application_id, status, attempt_count, remarks, created_at, updated_at, isDeleted)
-    SELECT c.id, sc.id, v.status, v.attempt_count, v.remarks,
+    SELECT c.id, sc.card_number, v.status, v.attempt_count, v.remarks,
            DATEADD(DAY, -v.days_ago, SYSUTCDATETIME()),
            DATEADD(DAY, -v.days_ago + 1, SYSUTCDATETIME()),
            0
@@ -524,7 +524,7 @@ BEGIN TRY
     -- Visa processes (5 records)
     ------------------------------------------------------------
     INSERT INTO dbo.VisaProcesses (client_id, application_id, visa_type, status, attempt_count, remarks, created_at, updated_at, isDeleted)
-    SELECT c.id, va.id, v.visa_type, v.status, v.attempt_count, v.remarks,
+    SELECT c.id, va.application_no, v.visa_type, v.status, v.attempt_count, v.remarks,
            DATEADD(DAY, -v.days_ago, SYSUTCDATETIME()),
            DATEADD(DAY, -v.days_ago + 1, SYSUTCDATETIME()),
            0

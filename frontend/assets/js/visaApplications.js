@@ -81,7 +81,6 @@ function initVisaCreateForm() {
       }
       const payload = {
         prospect_id: prospectId,
-        client_id: clientId,
         visa_type: data.visa_type ? data.visa_type.trim() || null : null,
         application_no: data.application_no ? data.application_no.trim() || null : null,
         status: data.status || 'Draft',
@@ -89,6 +88,7 @@ function initVisaCreateForm() {
         approved_at: data.approved_at ? new Date(data.approved_at).toISOString() : null,
         notes: data.notes ? data.notes.trim() || null : null,
       };
+      if (clientId !== null) payload.client_id = clientId;
       await api.post('/visa-applications', payload);
       form.reset();
       const modalEl = document.getElementById('visaModal');
@@ -183,7 +183,6 @@ async function loadVisaDetails() {
           throw new Error('Client must be a positive number.');
         }
         const payload = {
-          client_id: clientId,
           visa_type: form.visa_type.value ? form.visa_type.value.trim() || null : null,
           application_no: form.application_no.value ? form.application_no.value.trim() || null : null,
           status: form.status.value || null,
@@ -191,6 +190,7 @@ async function loadVisaDetails() {
           approved_at: form.approved_at.value ? new Date(form.approved_at.value).toISOString() : null,
           notes: form.notes.value ? form.notes.value.trim() || null : null,
         };
+        if (clientId !== null) payload.client_id = clientId;
         await api.put(`/visa-applications/${id}`, payload);
         showAlert('alert-box', 'Visa application updated.', 'success');
         toggleEdit(false);

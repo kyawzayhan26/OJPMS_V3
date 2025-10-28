@@ -86,19 +86,23 @@ function initProspectCreateForm() {
       if (data.interested_job_id && !interestedJobId) {
         throw new Error('Interested job must be a positive number.');
       }
+      const dobValue = data.dob ? normalizeDateOnly(data.dob) : null;
+      if (data.dob && !dobValue) {
+        throw new Error('Please enter a valid date of birth.');
+      }
       const payload = {
         full_name: data.full_name,
-        dob: data.dob || null,
-        passport_no: data.passport_no || null,
-        contact_email: data.contact_email || null,
         contact_phone: data.contact_phone,
-        address: data.address || null,
-        highest_qualification: data.highest_qualification || null,
         status: data.status || 'enquiry',
-        interested_job_id: interestedJobId,
         remarks1: data.remarks1 || null,
         remarks2: data.remarks2 || null,
+        passport_no: data.passport_no || null,
+        contact_email: data.contact_email || null,
+        address: data.address || null,
+        highest_qualification: data.highest_qualification || null,
       };
+      if (dobValue) payload.dob = dobValue;
+      if (interestedJobId !== null) payload.interested_job_id = interestedJobId;
       await api.post('/prospects', payload);
       form.reset();
       const modalEl = document.getElementById('prospectModal');
@@ -676,7 +680,19 @@ async function handleProspectDrop(evt) {
     return;
   }
 
-  const prospect = prospectCache.get(idAttr) || prospectCache.get(prospectId);
+  let prospect = prospectCache.get(idAttr) || prospectCache.get(prospectId);
+  if (!prospect) {
+    try {
+      const res = await api.get(`/prospects/${prospectId}`);
+      prospect = res.data;
+      if (prospect) {
+        prospectCache.set(String(prospect.id), prospect);
+        prospectCache.set(Number(prospect.id), prospect);
+      }
+    } catch (err) {
+      prospect = null;
+    }
+  }
   if (!prospect) {
     revert();
     showAlert('alert-box', 'Prospect data unavailable. Please refresh.', 'danger');
@@ -1020,19 +1036,24 @@ async function loadProspectDetails() {
         showAlert('alert-box', 'Interested job must be a positive number.', 'danger');
         return;
       }
+      const dobValue = form.dob.value ? normalizeDateOnly(form.dob.value) : null;
+      if (form.dob.value && !dobValue) {
+        showAlert('alert-box', 'Please enter a valid date of birth.', 'danger');
+        return;
+      }
       const payload = {
         full_name: form.full_name.value,
-        dob: form.dob.value || null,
         passport_no: form.passport_no.value || null,
         contact_email: form.contact_email.value || null,
         contact_phone: form.contact_phone.value || null,
         address: form.address.value || null,
         highest_qualification: form.highest_qualification.value || null,
         status: form.status.value,
-        interested_job_id: interestedJob,
         remarks1: form.remarks1.value || null,
         remarks2: form.remarks2.value || null,
       };
+      if (dobValue) payload.dob = dobValue;
+      if (interestedJob !== null) payload.interested_job_id = interestedJob;
       try {
         await api.put(`/prospects/${id}`, payload);
         showAlert('alert-box', 'Prospect updated successfully.', 'success');

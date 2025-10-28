@@ -328,24 +328,23 @@ CREATE TABLE dbo.VisaApplications (
 GO
 
 CREATE TABLE dbo.SmartCardProcesses (
-    id             BIGINT        IDENTITY(1,1) PRIMARY KEY,
-    client_id      BIGINT        NOT NULL,
-    application_id BIGINT        NOT NULL,
+    id             BIGINT         IDENTITY(1,1) PRIMARY KEY,
+    client_id      BIGINT         NOT NULL,
+    application_id NVARCHAR(100) NOT NULL,
     status         NVARCHAR(50)  NOT NULL DEFAULT 'Drafted',
     attempt_count  INT           NOT NULL DEFAULT 0,
     remarks        NVARCHAR(MAX) NULL,
     created_at     DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at     DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
     isDeleted      BIT           NOT NULL DEFAULT 0,
-    CONSTRAINT FK_SmartCardProcesses_Clients FOREIGN KEY (client_id) REFERENCES dbo.Clients(id) ON DELETE CASCADE,
-    CONSTRAINT FK_SmartCardProcesses_Applications FOREIGN KEY (application_id) REFERENCES dbo.SmartCardApplications(id)
+    CONSTRAINT FK_SmartCardProcesses_Clients FOREIGN KEY (client_id) REFERENCES dbo.Clients(id) ON DELETE CASCADE
 );
 GO
 
 CREATE TABLE dbo.VisaProcesses (
-    id             BIGINT        IDENTITY(1,1) PRIMARY KEY,
-    client_id      BIGINT        NOT NULL,
-    application_id BIGINT        NOT NULL,
+    id             BIGINT         IDENTITY(1,1) PRIMARY KEY,
+    client_id      BIGINT         NOT NULL,
+    application_id NVARCHAR(100) NOT NULL,
     visa_type      NVARCHAR(100) NULL,
     status         NVARCHAR(50)  NOT NULL DEFAULT 'Drafted',
     attempt_count  INT           NOT NULL DEFAULT 0,
@@ -353,8 +352,7 @@ CREATE TABLE dbo.VisaProcesses (
     created_at     DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
     updated_at     DATETIME2     NOT NULL DEFAULT SYSUTCDATETIME(),
     isDeleted      BIT           NOT NULL DEFAULT 0,
-    CONSTRAINT FK_VisaProcesses_Clients FOREIGN KEY (client_id) REFERENCES dbo.Clients(id) ON DELETE CASCADE,
-    CONSTRAINT FK_VisaProcesses_Applications FOREIGN KEY (application_id) REFERENCES dbo.VisaApplications(id)
+    CONSTRAINT FK_VisaProcesses_Clients FOREIGN KEY (client_id) REFERENCES dbo.Clients(id) ON DELETE CASCADE
 );
 GO
 

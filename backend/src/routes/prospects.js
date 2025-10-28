@@ -7,7 +7,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
-import { normalizeNullable } from '../utils/normalize.js';
+import { normalizeNullable, normalizeNullableDate } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -169,7 +169,16 @@ router.post(
   body('full_name').isString().isLength({ min: 2 }),
   body('contact_phone').isString().isLength({ min: 6 }),
   body('contact_email').optional({ checkFalsy: true, nullable: true }).isEmail().normalizeEmail(),
-  body('dob').optional({ checkFalsy: true, nullable: true }).isISO8601().withMessage('dob must be an ISO date (YYYY-MM-DD)'),
+  body('dob')
+    .optional({ checkFalsy: true, nullable: true })
+    .custom((value) => {
+      if (value === undefined || value === null || value === '') return true;
+      const parsed = Date.parse(value);
+      if (Number.isNaN(parsed)) {
+        throw new Error('dob must be a valid date.');
+      }
+      return true;
+    }),
   body('passport_no').optional({ checkFalsy: true, nullable: true }).isString().trim(),
   body('address').optional({ checkFalsy: true, nullable: true }).isString(),
   body('highest_qualification').optional({ checkFalsy: true, nullable: true }).isString(),
@@ -178,7 +187,20 @@ router.post(
     'application_drafted','application_submitted',
     'interview_scheduled','interview_passed'
   ]),
-  body('interested_job_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('interested_job_id')
+    .optional({ checkFalsy: true, nullable: true })
+    .customSanitizer((value) => {
+      if (value === undefined || value === null || value === '') return null;
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : value;
+    })
+    .custom((value) => {
+      if (value === null) return true;
+      if (!Number.isInteger(value) || value <= 0) {
+        throw new Error('interested_job_id must be a positive integer.');
+      }
+      return true;
+    }),
   body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
   body('remarks2').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
@@ -186,11 +208,14 @@ router.post(
     try {
       const { full_name, contact_phone, status = 'enquiry' } = req.body;
       const contact_email = normalizeNullable(req.body.contact_email);
-      const dob = normalizeNullable(req.body.dob);
+      const dobIso = normalizeNullableDate(req.body.dob);
+      const dob = dobIso ? new Date(dobIso) : null;
       const passport_no = normalizeNullable(req.body.passport_no);
       const address = normalizeNullable(req.body.address);
       const highest_qualification = normalizeNullable(req.body.highest_qualification);
-      const interested_job_id = req.body.interested_job_id ?? null;
+      const interested_job_id = Number.isInteger(req.body.interested_job_id)
+        ? req.body.interested_job_id
+        : null;
       const remarks1 = normalizeNullable(req.body.remarks1);
       const remarks2 = normalizeNullable(req.body.remarks2);
 
@@ -242,7 +267,16 @@ router.put(
   body('full_name').optional().isString().isLength({ min: 2 }),
   body('contact_phone').optional().isString().isLength({ min: 6 }),
   body('contact_email').optional({ checkFalsy: true, nullable: true }).isEmail().normalizeEmail(),
-  body('dob').optional({ checkFalsy: true, nullable: true }).isISO8601(),
+  body('dob')
+    .optional({ checkFalsy: true, nullable: true })
+    .custom((value) => {
+      if (value === undefined || value === null || value === '') return true;
+      const parsed = Date.parse(value);
+      if (Number.isNaN(parsed)) {
+        throw new Error('dob must be a valid date.');
+      }
+      return true;
+    }),
   body('passport_no').optional({ checkFalsy: true, nullable: true }).isString(),
   body('address').optional({ checkFalsy: true, nullable: true }).isString(),
   body('highest_qualification').optional({ checkFalsy: true, nullable: true }).isString(),
@@ -251,38 +285,68 @@ router.put(
     'application_drafted','application_submitted',
     'interview_scheduled','interview_passed'
   ]),
-  body('interested_job_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('interested_job_id')
+    .optional({ checkFalsy: true, nullable: true })
+    .customSanitizer((value) => {
+      if (value === undefined || value === null || value === '') return null;
+      const parsed = Number.parseInt(value, 10);
+      return Number.isFinite(parsed) ? parsed : value;
+    })
+    .custom((value) => {
+      if (value === null) return true;
+      if (!Number.isInteger(value) || value <= 0) {
+        throw new Error('interested_job_id must be a positive integer.');
+      }
+      return true;
+    }),
   body('remarks1').optional({ checkFalsy: true, nullable: true }).isString(),
   body('remarks2').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
+    const pool = getPool();
+    const sql = (await import('mssql')).default;
+    const tx = new sql.Transaction(pool);
     try {
       const id = +req.params.id;
+      await tx.begin();
+
+      const existingRs = await new sql.Request(tx)
+        .input('id', sql.BigInt, id)
+        .query('SELECT TOP 1 * FROM Prospects WHERE id=@id AND isDeleted=0;');
+      const existing = existingRs.recordset[0];
+      if (!existing) {
+        await tx.rollback();
+        return res.status(404).json({ message: 'Not found' });
+      }
+
       const full_name = normalizeNullable(req.body.full_name) || null;
       const contact_phone = normalizeNullable(req.body.contact_phone) || null;
       const contact_email = normalizeNullable(req.body.contact_email);
-      const dob = normalizeNullable(req.body.dob);
+      const dobIso = normalizeNullableDate(req.body.dob);
+      const dob = dobIso ? new Date(dobIso) : null;
       const passport_no = normalizeNullable(req.body.passport_no);
       const address = normalizeNullable(req.body.address);
       const highest_qualification = normalizeNullable(req.body.highest_qualification);
       const status = req.body.status ?? null;
-      const interested_job_id = req.body.interested_job_id ?? null;
+      const interested_job_id = Number.isInteger(req.body.interested_job_id)
+        ? req.body.interested_job_id
+        : null;
       const remarks1 = normalizeNullable(req.body.remarks1);
       const remarks2 = normalizeNullable(req.body.remarks2);
 
-      const result = await getPool().request()
-        .input('id', id)
-        .input('full_name', full_name)
-        .input('contact_phone', contact_phone)
-        .input('contact_email', contact_email)
-        .input('dob', dob)
-        .input('passport_no', passport_no)
-        .input('address', address)
-        .input('highest_qualification', highest_qualification)
-        .input('status', status)
-        .input('interested_job_id', interested_job_id)
-        .input('remarks1', remarks1)
-        .input('remarks2', remarks2)
+      const updateRs = await new sql.Request(tx)
+        .input('id', sql.BigInt, id)
+        .input('full_name', sql.NVarChar, full_name)
+        .input('contact_phone', sql.NVarChar, contact_phone)
+        .input('contact_email', sql.NVarChar, contact_email)
+        .input('dob', sql.DateTime2, dob)
+        .input('passport_no', sql.NVarChar, passport_no)
+        .input('address', sql.NVarChar, address)
+        .input('highest_qualification', sql.NVarChar, highest_qualification)
+        .input('status', sql.NVarChar, status)
+        .input('interested_job_id', sql.BigInt, interested_job_id)
+        .input('remarks1', sql.NVarChar, remarks1)
+        .input('remarks2', sql.NVarChar, remarks2)
         .query(`
           UPDATE Prospects
              SET full_name             = COALESCE(@full_name, full_name),
@@ -302,8 +366,29 @@ router.put(
           SELECT * FROM Prospects WHERE id=@id;
         `);
 
-      const row = result.recordset[0];
-      if (!row) return res.status(404).json({ message: 'Not found' });
+      const row = updateRs.recordset[0];
+      if (!row) {
+        await tx.rollback();
+        return res.status(404).json({ message: 'Not found' });
+      }
+
+      const statusChanged = typeof status === 'string' && status !== existing.status;
+      if (statusChanged) {
+        await new sql.Request(tx)
+          .input('prospect_id', sql.BigInt, id)
+          .input('from_status', sql.NVarChar, existing.status || 'enquiry')
+          .input('to_status', sql.NVarChar, row.status || status)
+          .input('changed_by', sql.BigInt, req.user?.userId || null)
+          .input('remarks', sql.NVarChar, 'Status updated from prospect details form.')
+          .query(`
+            INSERT INTO ProspectStatusHistory
+              (prospect_id, from_status, to_status, changed_by, changed_at, remarks)
+            VALUES
+              (@prospect_id, @from_status, @to_status, @changed_by, SYSUTCDATETIME(), @remarks);
+          `);
+      }
+
+      await tx.commit();
 
       await writeAudit({
         req,
@@ -314,7 +399,10 @@ router.put(
         details: row
       });
       res.json(row);
-    } catch (err) { next(err); }
+    } catch (err) {
+      try { await tx.rollback(); } catch (_) {}
+      next(err);
+    }
   }
 );
 
