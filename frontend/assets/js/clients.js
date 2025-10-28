@@ -1,104 +1,641 @@
+const CLIENT_STATUSES = [
+  'Newly_Promoted',
+  'SmartCard_InProgress',
+  'Visa_InProgress',
+  'Payment_Pending',
+  'FlightBooking_Pending',
+  'Accommodation_Pending',
+  'Approved_For_Deployment',
+  'Departed',
+];
 
-let clientDnDInit = false;
+function clientStatusLabel(status) {
+  return (status || '').replace(/_/g, ' ');
+}
 
-async function loadClientsKanban(){
-  const cols = ['Interview_Passed','Smartcard_InProgress','SmartCard_Approved','Visa_InProgress','Visa_Approved','Flight_Booked'];
-  const el = Object.fromEntries(cols.map(k=>[k, document.getElementById('c-'+k)]));
-  Object.values(el).forEach(n=> n.innerHTML = '<div class="text-muted">Loading…</div>');
+const clientCache = new Map();
 
-  let rows = [];
-  try{
-    const res = await api.get('/api/clients'); // if not available, will throw
-    rows = res.data.rows || [];
-  }catch(e){
-    // graceful: no list endpoint available
-    Object.values(el).forEach(n=> n.innerHTML = '<div class="text-info">GET /api/clients is not available on backend yet.</div>');
-    return;
-  }
+function modalPromise(modalId, formId, alertId, onValidate) {
+  const modalEl = document.getElementById(modalId);
+  const form = document.getElementById(formId);
+  if (!modalEl || !form) return Promise.resolve(null);
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const alertBox = alertId ? document.getElementById(alertId) : null;
 
-  const groups = Object.fromEntries(cols.map(k=>[k,[]]));
-  for (const c of rows){
-    const s = c.status || 'Interview_Passed';
-    (groups[s] || groups['Interview_Passed']).push(c);
-  }
-  const card = (c) => `<div class="kanban-card mb-2" data-id="${c.id}">
-      <div class="fw-semibold">${c.full_name || ('Client #' + c.id)}</div>
-      <div class="small text-muted">${c.contact_phone || ''}</div>
-      <div class="mt-2 d-flex gap-2">
-        <a class="btn btn-sm btn-outline-primary" href="/clients/details.html?id=${c.id}">View</a>
-      </div>
-    </div>`;
-  cols.forEach(k=>{
-    el[k].innerHTML = groups[k].map(card).join('') || '<div class="text-muted">Empty</div>';
+  return new Promise((resolve) => {
+    const cleanup = () => {
+      form.removeEventListener('submit', onSubmit);
+      modalEl.removeEventListener('hidden.bs.modal', onHidden);
+    };
+
+    const onHidden = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    const onSubmit = (ev) => {
+      ev.preventDefault();
+      if (alertBox) alertBox.innerHTML = '';
+      const data = formToJSON(form);
+      const result = onValidate ? onValidate(data, alertBox) : data;
+      if (!result) {
+        return;
+      }
+      cleanup();
+      modal.hide();
+      resolve(result);
+    };
+
+    if (alertBox) alertBox.innerHTML = '';
+    form.reset();
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+    form.addEventListener('submit', onSubmit);
+    modal.show();
   });
+}
 
-  if (!clientDnDInit){
-    clientDnDInit = true;
-    // Init Sortable on each column; same group so cross-column moves
-    cols.forEach(k=>{
-      new Sortable(el[k], {
-        group: 'clients', animation: 150, ghostClass: 'bg-light',
+function promptSmartcardProcess() {
+  return modalPromise('smartcardProcessModal', 'smartcard-process-form', 'smartcard-process-alert', (data) => {
+    const reference = (data.application_id || '').trim();
+    if (!reference) {
+      showAlert('smartcard-process-alert', 'Application reference is required.', 'danger');
+      return null;
+    }
+    return { application_id: reference, remarks: data.remarks ? data.remarks.trim() || null : null };
+  });
+}
+
+function promptVisaProcess() {
+  return modalPromise('visaProcessModal', 'visa-process-form', 'visa-process-alert', (data) => {
+    const reference = (data.application_id || '').trim();
+    if (!reference) {
+      showAlert('visa-process-alert', 'Application reference is required.', 'danger');
+      return null;
+    }
+    return {
+      application_id: reference,
+      visa_type: data.visa_type ? data.visa_type.trim() || null : null,
+      remarks: data.remarks ? data.remarks.trim() || null : null,
+    };
+  });
+}
+
+function promptClientPayment() {
+  return modalPromise('clientPaymentModal', 'client-payment-form', 'client-payment-alert', (data) => {
+    const amount = parsePositiveDecimal(data.amount);
+    if (amount === null) {
+      showAlert('client-payment-alert', 'Please enter a valid amount greater than zero.', 'danger');
+      return null;
+    }
+    const currency = (data.currency || '').trim().toUpperCase();
+    if (!currency || currency.length !== 3) {
+      showAlert('client-payment-alert', 'Currency must be a 3-letter code.', 'danger');
+      return null;
+    }
+    const reference_no = (data.reference_no || '').trim();
+    if (!reference_no) {
+      showAlert('client-payment-alert', 'Reference number is required.', 'danger');
+      return null;
+    }
+    return {
+      amount: Number(amount.toFixed(2)),
+      currency,
+      reference_no,
+      invoice_description: data.invoice_description ? data.invoice_description.trim() || null : null,
+    };
+  });
+}
+
+function promptFlightBooking() {
+  return modalPromise('flightBookingModal', 'flight-booking-form', 'flight-booking-alert', (data) => {
+    const airline = (data.airline || '').trim();
+    const booking_reference = (data.booking_reference || '').trim();
+    if (!airline) {
+      showAlert('flight-booking-alert', 'Airline is required.', 'danger');
+      return null;
+    }
+    if (!booking_reference) {
+      showAlert('flight-booking-alert', 'Booking reference is required.', 'danger');
+      return null;
+    }
+    if (!data.flight_datetime) {
+      showAlert('flight-booking-alert', 'Flight date and time is required.', 'danger');
+      return null;
+    }
+    return {
+      airline,
+      booking_reference,
+      flight_datetime: data.flight_datetime,
+      remarks: data.remarks ? data.remarks.trim() || null : null,
+    };
+  });
+}
+
+function promptAccommodation() {
+  return modalPromise('accommodationModal', 'accommodation-form', 'accommodation-alert', (data) => {
+    const type = (data.type || '').trim();
+    const details = (data.details || '').trim();
+    if (!type || !details) {
+      showAlert('accommodation-alert', 'Accommodation type and details are required.', 'danger');
+      return null;
+    }
+    return { type, details };
+  });
+}
+
+async function loadClientsList() {
+  const container = document.getElementById('clients-list');
+  if (!container) return;
+  container.innerHTML = '<div class="text-muted">Loading clients…</div>';
+  try {
+    const search = document.getElementById('search-input')?.value || '';
+    const status = document.getElementById('status-filter')?.value || '';
+    const prospectRaw = (document.getElementById('prospect-filter')?.value || '').trim();
+    const prospectId = prospectRaw ? parsePositiveInt(prospectRaw) : null;
+    if (prospectRaw && !prospectId) {
+      showAlert('alert-box', 'Prospect filter must be a positive number.', 'warning');
+      container.innerHTML = '<div class="text-muted">Adjust the filters to continue.</div>';
+      return;
+    }
+    const sort = document.getElementById('sort-select')?.value || 'created_at:desc';
+    const params = {
+      search: search || undefined,
+      status: status || undefined,
+      prospect_id: prospectId || undefined,
+      limit: 100,
+      page: 1,
+      sort,
+    };
+    const res = await api.get('/clients', { params });
+    const rows = res.data?.rows || [];
+    container.innerHTML = rows
+      .map((client) => {
+        const fullName = escapeHtml(client.full_name || `Client #${client.id}`);
+        const passport = escapeHtml(client.passport_no || '—');
+        const prospectLabel = client.prospect_id
+          ? client.prospect_name
+            ? `${escapeHtml(client.prospect_name)} (#${client.prospect_id})`
+            : `Prospect #${client.prospect_id}`
+          : 'No linked prospect';
+        const created = formatDate(client.created_at);
+        return `
+        <div class="card shadow-sm">
+          <div class="card-body d-flex flex-column gap-2">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <div class="fw-semibold">${fullName}</div>
+                <div class="small text-muted">Passport: ${passport}</div>
+              </div>
+              <span class="badge text-bg-secondary">${clientStatusLabel(client.status)}</span>
+            </div>
+            <div class="small text-muted">Prospect: ${prospectLabel}</div>
+            <div class="d-flex justify-content-between align-items-center">
+              <span class="small text-muted">Created ${created}</span>
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
+            </div>
+          </div>
+        </div>`;
+      })
+      .join('');
+    if (!rows.length) container.innerHTML = '<div class="text-muted">No clients found.</div>';
+  } catch (err) {
+    container.innerHTML = '<div class="text-danger">Failed to load clients.</div>';
+    showAlert('alert-box', err.response?.data?.message || 'Unable to fetch clients', 'danger');
+  }
+}
+
+function setupClientFilters() {
+  ['search-input', 'status-filter', 'prospect-filter', 'sort-select'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const handler = () => loadClientsList();
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', handler);
+  });
+}
+
+function initClientForm() {
+  const form = document.getElementById('client-form');
+  if (!form) return;
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    toggleFormDisabled(form, true);
+    const data = formToJSON(form);
+    try {
+      const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
+      const payload = {
+        prospect_id: prospectId,
+        full_name: data.full_name,
+        passport_no: data.passport_no || null,
+        status: data.status,
+        remarks1: data.remarks1 || null,
+      };
+      await api.post('/clients', payload);
+      form.reset();
+      const modalEl = document.getElementById('clientModal');
+      if (modalEl) {
+        const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+        modal.hide();
+      }
+      showAlert('alert-box', 'Client created.', 'success');
+      await loadClientsList();
+    } catch (err) {
+      showAlert('form-alert', err.response?.data?.message || err.message || 'Failed to create client', 'danger');
+    } finally {
+      toggleFormDisabled(form, false);
+    }
+  });
+}
+
+function formatClientActor(name, email, id) {
+  if (name) {
+    return escapeHtml(email ? `${name} (${email})` : name);
+  }
+  if (email) return escapeHtml(email);
+  if (id) return `User #${id}`;
+  return 'System';
+}
+
+function renderClientStatusHistory(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No status changes recorded.</div>';
+  }
+  return entries
+    .map((item) => {
+      const actor = formatClientActor(item.changed_by_name, item.changed_by_email, item.changed_by);
+      const fromLabel = clientStatusLabel(item.from_status) || '—';
+      const toLabel = clientStatusLabel(item.to_status) || '—';
+      const remarks = item.remarks ? `<div class="small mt-1">${escapeHtml(item.remarks)}</div>` : '';
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${fromLabel} → ${toLabel}</div>
+            <div class="small text-muted">${actor}</div>
+            ${remarks}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(item.changed_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+function renderClientAuditLogs(entries = []) {
+  if (!entries.length) {
+    return '<div class="list-group-item text-muted">No changes recorded.</div>';
+  }
+  return entries
+    .map((log) => {
+      const actor = formatClientActor(log.actor_name, log.actor_email, log.actor_user_id);
+      const metaParts = [];
+      if (log.method || log.path) metaParts.push(`${log.method || ''} ${log.path || ''}`.trim());
+      if (log.status_code) metaParts.push(`Status ${log.status_code}`);
+      const meta = metaParts.filter(Boolean).join(' · ');
+      let detailBlock = '';
+      if (log.details) {
+        let detailText = typeof log.details === 'string' ? log.details : JSON.stringify(log.details, null, 2);
+        if (detailText.length > 500) detailText = `${detailText.slice(0, 500)}…`;
+        detailBlock = `<pre class="small bg-light border rounded p-2 mt-2 mb-0 overflow-auto">${escapeHtml(detailText)}</pre>`;
+      }
+      return `<div class="list-group-item">
+        <div class="d-flex justify-content-between align-items-start gap-3">
+          <div>
+            <div class="fw-semibold">${escapeHtml(log.action || 'Change')}</div>
+            <div class="small text-muted">${actor}${meta ? ` · ${escapeHtml(meta)}` : ''}</div>
+            ${detailBlock}
+          </div>
+          <div class="small text-muted text-nowrap">${formatDate(log.created_at)}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+}
+
+async function loadClientHistory(clientId) {
+  const statusContainer = document.getElementById('client-status-history');
+  const auditContainer = document.getElementById('client-audit-log');
+  if (!statusContainer && !auditContainer) return;
+
+  if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+  if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-muted">Loading…</div>';
+
+  try {
+    const res = await api.get(`/clients/${clientId}/history`);
+    const { statusHistory = [], auditLogs = [] } = res.data || {};
+    if (statusContainer) statusContainer.innerHTML = renderClientStatusHistory(statusHistory);
+    if (auditContainer) auditContainer.innerHTML = renderClientAuditLogs(auditLogs);
+  } catch (err) {
+    if (statusContainer) statusContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load status history.</div>';
+    if (auditContainer) auditContainer.innerHTML = '<div class="list-group-item text-danger">Unable to load audit trail.</div>';
+  }
+}
+
+async function loadClientsKanban() {
+  const container = document.getElementById('clients-board');
+  if (!container) return;
+  container.innerHTML = CLIENT_STATUSES
+    .map(
+      (status) => `
+      <div class="d-flex flex-column" style="min-width: 260px;">
+        <h6 class="text-uppercase small fw-semibold mb-2">${clientStatusLabel(status)}</h6>
+        <div class="kanban-col" data-status="${status}" id="c-${status}">
+          <div class="text-muted">Loading…</div>
+        </div>
+      </div>`
+    )
+    .join('');
+  try {
+    const res = await api.get('/clients', { params: { limit: 100, page: 1, sort: 'created_at:desc' } });
+    const rows = res.data?.rows || [];
+    const buckets = Object.fromEntries(CLIENT_STATUSES.map((s) => [s, []]));
+    clientCache.clear();
+    rows.forEach((client) => {
+      const status = CLIENT_STATUSES.includes(client.status) ? client.status : CLIENT_STATUSES[0];
+      buckets[status].push(client);
+      const keyStr = String(client.id);
+      clientCache.set(keyStr, client);
+      const keyNum = Number(keyStr);
+      if (!Number.isNaN(keyNum)) {
+        clientCache.set(keyNum, client);
+      }
+    });
+    CLIENT_STATUSES.forEach((status) => {
+      const col = document.getElementById(`c-${status}`);
+      if (!col) return;
+      const cards = buckets[status]
+        .map(
+          (client) => `
+          <div class="kanban-card mb-2" data-id="${client.id}">
+            <div class="fw-semibold">${escapeHtml(client.full_name || `Client #${client.id}`)}</div>
+            <div class="small text-muted">Passport: ${escapeHtml(client.passport_no || '—')}</div>
+            <div class="small text-muted">${formatDate(client.created_at)}</div>
+            <div class="mt-2 d-flex gap-2">
+              <a class="btn btn-sm btn-outline-primary" href="${resolveAppPath('clients/details.html?id=' + client.id)}">View</a>
+            </div>
+          </div>`
+        )
+        .join('');
+      col.innerHTML = cards || '<div class="text-muted">Empty</div>';
+      new Sortable(col, {
+        group: 'clients',
+        animation: 150,
         onEnd: async (evt) => {
-          const id = evt.item.getAttribute('data-id');
+          const idAttr = evt.item.getAttribute('data-id');
+          const idNum = Number(idAttr);
           const toStatus = evt.to.getAttribute('data-status');
-          try{
-            await api.patch(`/api/clients/${id}/status`, { to_status: toStatus });
-            // success feedback optional
-          }catch(err){
-            // revert UI by moving back
-            evt.from.appendChild(evt.item);
-            alert('Failed to update client status.');
+          const fromStatus = evt.from.getAttribute('data-status');
+          if (!idAttr || !toStatus || toStatus === fromStatus) return;
+
+          const originList = evt.from;
+          const originalIndex = evt.oldIndex;
+          const revert = () => {
+            const reference = originList.children[originalIndex] || null;
+            originList.insertBefore(evt.item, reference);
+          };
+
+          if (Number.isNaN(idNum)) {
+            revert();
+            showAlert('alert-box', 'Client identifier is invalid.', 'danger');
+            return;
           }
-        }
+
+          const client = clientCache.get(idAttr) || clientCache.get(idNum);
+          if (!client) {
+            revert();
+            showAlert('alert-box', 'Client data unavailable. Please refresh.', 'danger');
+            return;
+          }
+
+          const fromIndex = CLIENT_STATUSES.indexOf(fromStatus);
+          const toIndex = CLIENT_STATUSES.indexOf(toStatus);
+          if (fromIndex === -1 || toIndex === -1) {
+            revert();
+            showAlert('alert-box', 'Unsupported status change.', 'danger');
+            return;
+          }
+          if (toIndex <= fromIndex) {
+            revert();
+            showAlert('alert-box', 'Clients can only move forward in the pipeline.', 'warning');
+            return;
+          }
+          if (toIndex - fromIndex > 1) {
+            revert();
+            showAlert('alert-box', 'Please progress one stage at a time.', 'warning');
+            return;
+          }
+
+          const transitionKey = `${fromStatus}->${toStatus}`;
+          const payload = { to_status: toStatus };
+          let successMessage = `Client moved to ${clientStatusLabel(toStatus)}.`;
+
+          try {
+            switch (transitionKey) {
+              case 'Newly_Promoted->SmartCard_InProgress': {
+                const data = await promptSmartcardProcess();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.smartcard = data;
+                successMessage = 'SmartCard process started.';
+                break;
+              }
+              case 'SmartCard_InProgress->Visa_InProgress': {
+                const data = await promptVisaProcess();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.visa = data;
+                successMessage = 'Visa process started.';
+                break;
+              }
+              case 'Visa_InProgress->Payment_Pending': {
+                const data = await promptClientPayment();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.payment = data;
+                successMessage = 'Payment recorded.';
+                break;
+              }
+              case 'Payment_Pending->FlightBooking_Pending': {
+                const data = await promptFlightBooking();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.flight = data;
+                successMessage = 'Flight booking saved.';
+                break;
+              }
+              case 'FlightBooking_Pending->Accommodation_Pending': {
+                const data = await promptAccommodation();
+                if (!data) {
+                  revert();
+                  return;
+                }
+                payload.accommodation = data;
+                successMessage = 'Accommodation recorded.';
+                break;
+              }
+              case 'Accommodation_Pending->Approved_For_Deployment': {
+                if ((getUserRole() || '').toLowerCase() !== 'admin') {
+                  revert();
+                  showAlert('alert-box', 'Only administrators can approve deployment.', 'danger');
+                  return;
+                }
+                const confirmed = await promptKeywordConfirm({
+                  title: 'Approve for deployment',
+                  messageHtml: 'Type <strong>confirm</strong> to approve this client for deployment.',
+                  keyword: 'confirm',
+                  confirmLabel: 'Approve',
+                });
+                if (!confirmed) {
+                  revert();
+                  return;
+                }
+                successMessage = 'Client approved for deployment.';
+                break;
+              }
+              case 'Approved_For_Deployment->Departed': {
+                const confirmed = await promptKeywordConfirm({
+                  title: 'Mark as departed',
+                  messageHtml: 'Type <strong>confirm</strong> to mark this client as departed.',
+                  keyword: 'confirm',
+                  confirmLabel: 'Confirm',
+                });
+                if (!confirmed) {
+                  revert();
+                  return;
+                }
+                successMessage = 'Client marked as departed.';
+                break;
+              }
+              default: {
+                revert();
+                showAlert('alert-box', 'This transition is not supported yet.', 'danger');
+                return;
+              }
+            }
+
+            await api.patch(`/clients/${idNum}/status`, payload);
+            showAlert('alert-box', successMessage, 'success');
+            await loadClientsKanban();
+            return;
+          } catch (err) {
+            revert();
+            showAlert('alert-box', err.response?.data?.message || 'Failed to update status', 'danger');
+          }
+        },
       });
+    });
+
+    equalizeKanbanColumns(container);
+  } catch (err) {
+    CLIENT_STATUSES.forEach((status) => {
+      const col = document.getElementById(`c-${status}`);
+      if (col) col.innerHTML = '<div class="text-danger">Failed to load.</div>';
     });
   }
 }
 
-async function loadClientDetails(){
+async function loadClientDetails() {
   const id = getParam('id');
-  if (!id){ showAlert('alert-box', 'Missing client id', 'danger'); return; }
-  try{
-    let client = null;
-    try{ const one = await api.get('/api/clients/' + id); client = one.data; }catch(e){
-      const all = await api.get('/api/clients');
-      client = (all.data.rows||[]).find(x=> String(x.id)===String(id));
-    }
-    if (!client){ showAlert('alert-box', 'Client not found', 'warning'); return; }
-
-    document.getElementById('client-overview').innerHTML = `
-      <div class="d-flex justify-content-between align-items-start">
-        <div>
-          <div class="fs-5 fw-semibold">${client.full_name || ('Client #' + client.id)}</div>
-          <div class="small text-muted">${client.contact_phone || ''} ${client.contact_email ? '· '+client.contact_email : ''}</div>
-          <div class="small text-muted">Status: <span class="badge text-bg-secondary">${client.status || '-'}</span></div>
-        </div>
-      </div>`;
-
-    const actions = ['Smartcard_InProgress','SmartCard_Approved','Visa_InProgress','Visa_Approved','Accommodation_Pending','FlightBooking_Pending','Approved_For_Deployment','Departed'];
-    document.getElementById('quick-actions').innerHTML = actions.map(a=>`<button class="btn btn-sm btn-outline-primary" data-action="${a}">${a.replaceAll('_',' ')}</button>`).join('');
-
-    try{
-      const docs = await api.get('/api/documents');
-      const list = (docs.data.rows||[]).filter(d=> String(d.client_id)===String(id));
-      document.getElementById('documents').innerHTML = list.map(d=>`
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-          <span>${d.type} <span class="text-muted">· ${d.status}</span></span>
-          ${d.file_url ? `<a href="${d.file_url}" target="_blank" class="small">Open</a>` : ''}
-        </li>`).join('') || '<li class="list-group-item text-muted">No documents</li>';
-    }catch(e){{}}
-  }catch(e){
-    showAlert('alert-box', 'Failed to load client', 'danger');
+  if (!id) {
+    showAlert('alert-box', 'Missing client id', 'danger');
+    return;
   }
+  const summary = document.getElementById('client-summary');
+  const form = document.getElementById('client-detail-form');
+  const editBtn = document.getElementById('edit-client');
+  const saveBtn = document.getElementById('save-client');
+  const cancelBtn = document.getElementById('cancel-edit');
+  const deleteBtn = document.getElementById('delete-client');
 
-  document.getElementById('quick-actions').addEventListener('click', async (ev)=>{
-    const btn = ev.target.closest('button[data-action]'); if (!btn) return;
-    const to = btn.getAttribute('data-action');
-    const id = getParam('id');
-    try{
-      await api.patch(`/api/clients/${id}/status`, { to_status: to });
-      showAlert('alert-box', 'Status updated.', 'success');
-      await loadClientDetails();
-    }catch(e){ showAlert('alert-box', 'Failed to update status', 'danger'); }
-  });
+  const setFormValues = (client) => {
+    if (!form) return;
+    form.prospect_id.value = client.prospect_id || '';
+    form.full_name.value = client.full_name || '';
+    form.passport_no.value = client.passport_no || '';
+    form.status.value = CLIENT_STATUSES.includes(client.status) ? client.status : CLIENT_STATUSES[0];
+    form.remarks1.value = client.remarks1 || '';
+    refreshLookupDisplay(form.prospect_id);
+  };
+
+  const toggleEdit = (isEditing) => {
+    if (!form) return;
+    Array.from(form.elements).forEach((el) => {
+      if (el.name) {
+        el.disabled = !isEditing && el.tagName !== 'BUTTON';
+      }
+    });
+    if (editBtn) editBtn.classList.toggle('d-none', isEditing);
+    if (saveBtn) saveBtn.classList.toggle('d-none', !isEditing);
+    if (cancelBtn) cancelBtn.classList.toggle('d-none', !isEditing);
+  };
+
+  try {
+    const res = await api.get(`/clients/${id}`);
+    const client = res.data;
+    if (summary) {
+      const safeName = escapeHtml(client.full_name || `Client #${client.id}`);
+      const passport = escapeHtml(client.passport_no || '—');
+      const prospectLabel = client.prospect_id
+        ? client.prospect_name
+          ? `${escapeHtml(client.prospect_name)} (#${client.prospect_id})`
+          : `Prospect #${client.prospect_id}`
+        : 'No linked prospect';
+      summary.innerHTML = `
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h1 class="h5 mb-1">${safeName}</h1>
+            <div class="small text-muted">Passport: ${passport}</div>
+            <div class="small text-muted">${prospectLabel}</div>
+          </div>
+          <span class="badge text-bg-secondary">${clientStatusLabel(client.status)}</span>
+        </div>
+        <div class="small text-muted mt-2">Created ${formatDate(client.created_at)}${client.updated_at ? ` · Updated ${formatDate(client.updated_at)}` : ''}</div>`;
+    }
+    setFormValues(client);
+    toggleEdit(false);
+    await loadClientHistory(client.id);
+
+    if (editBtn) editBtn.onclick = () => toggleEdit(true);
+    if (cancelBtn) cancelBtn.onclick = () => {
+      setFormValues(client);
+      toggleEdit(false);
+    };
+    if (saveBtn) saveBtn.onclick = async () => {
+      if (!form) return;
+      try {
+        const prospectId = requirePositiveInt(form.prospect_id.value, 'Prospect');
+        const payload = {
+          prospect_id: prospectId,
+          full_name: form.full_name.value,
+          passport_no: form.passport_no.value || null,
+          status: form.status.value,
+          remarks1: form.remarks1.value || null,
+        };
+        await api.put(`/clients/${id}`, payload);
+        showAlert('alert-box', 'Client updated.', 'success');
+        toggleEdit(false);
+        await loadClientDetails();
+      } catch (err) {
+        showAlert('alert-box', err.response?.data?.message || err.message || 'Failed to update client', 'danger');
+      }
+    };
+    if (deleteBtn) deleteBtn.onclick = async () => {
+      if (!confirm('Delete this client?')) return;
+      try {
+        await api.delete(`/clients/${id}`);
+        showAlert('alert-box', 'Client deleted.', 'success');
+        setTimeout(() => navigateTo('clients/list.html'), 800);
+      } catch (err) {
+        showAlert('alert-box', err.response?.data?.message || 'Failed to delete client', 'danger');
+      }
+    };
+  } catch (err) {
+    showAlert('alert-box', err.response?.data?.message || 'Failed to load client', 'danger');
+  }
 }

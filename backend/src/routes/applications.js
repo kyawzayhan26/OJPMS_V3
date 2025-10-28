@@ -7,6 +7,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -118,18 +119,14 @@ router.post('/',
   body('prospect_id').isInt().toInt(),
   body('job_id').isInt().toInt(),
   body('status').isIn(['Draft', 'Submitted', 'Rejected', 'Shortlisted']),
-  body('notes').optional().isString(),
-  body('employer_response_at').optional().isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('employer_response_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const {
-        prospect_id,
-        job_id,
-        status,
-        notes = null,
-        employer_response_at = null
-      } = req.body;
+      const { prospect_id, job_id, status } = req.body;
+      const notes = normalizeNullable(req.body.notes);
+      const employer_response_at = normalizeNullable(req.body.employer_response_at);
 
       const result = await getPool().request()
         .input('prospect_id', prospect_id)
@@ -184,17 +181,15 @@ router.put(
   can('applications:write'),
   param('id').toInt().isInt({ min: 1 }),
   body('status').optional().isIn(['Draft','Submitted','Rejected','Shortlisted']),
-  body('notes').optional().isString(),
-  body('employer_response_at').optional().isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('employer_response_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const {
-        status = null,
-        notes = null,
-        employer_response_at = null
-      } = req.body;
+      const { status = null } = req.body;
+      const notes = normalizeNullable(req.body.notes);
+      const employer_response_at = normalizeNullable(req.body.employer_response_at);
 
       const result = await getPool().request()
         .input('id', id)

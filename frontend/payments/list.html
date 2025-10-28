@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Payments · OJPMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../assets/css/styles.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+    <script defer src="../assets/js/utils.js"></script>
+    <script defer src="../assets/js/api.js"></script>
+    <script defer src="../assets/js/auth.js"></script>
+    <script defer src="../assets/js/payments.js"></script>
+  </head>
+  <body>
+    <div id="app-navbar"></div>
+    <div class="container py-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h4 m-0">Payments</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#paymentModal">+ Add Payment</button>
+      </div>
+      <div id="alert-box"></div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label">Search</label>
+          <input id="search-input" class="form-control" placeholder="Client, reference, currency">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Status</label>
+          <select id="status-filter" class="form-select">
+            <option value="">All</option>
+            <option value="Pending">Pending</option>
+            <option value="Paid">Paid</option>
+            <option value="Waived">Waived</option>
+            <option value="Refunded">Refunded</option>
+          </select>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Client</label>
+          <input id="client-filter" class="form-control" type="number" inputmode="numeric" data-lookup="client">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Currency</label>
+          <input id="currency-filter" class="form-control" placeholder="USD">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Sort</label>
+          <select id="sort-select" class="form-select">
+            <option value="created_at:desc">Newest first</option>
+            <option value="created_at:asc">Oldest first</option>
+            <option value="amount:desc">Amount high → low</option>
+            <option value="amount:asc">Amount low → high</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-grid" id="payments-list"></div>
+    </div>
+
+    <div class="modal fade" id="paymentModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <form class="modal-content" id="payment-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Payment</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="form-alert"></div>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <label class="form-label">Client</label>
+                <input class="form-control" name="client_id" type="number" inputmode="numeric" data-lookup="client" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Amount</label>
+                <input class="form-control" name="amount" type="number" step="0.01" min="0.01" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Currency</label>
+                <input class="form-control" name="currency" maxlength="3" required>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                  <option value="Pending">Pending</option>
+                  <option value="Paid">Paid</option>
+                  <option value="Waived">Waived</option>
+                  <option value="Refunded">Refunded</option>
+                </select>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Reference number</label>
+                <input class="form-control" name="reference_no">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Invoice description</label>
+                <textarea class="form-control" name="invoice_description" rows="3" placeholder="Optional"></textarea>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Payment</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        renderNavbar();
+        await requireAuthGuard();
+        setupPaymentFilters();
+        initPaymentForm();
+        loadPaymentsList();
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Flight Bookings · OJPMS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../assets/css/styles.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.7.7/dist/axios.min.js"></script>
+    <script defer src="../assets/js/utils.js"></script>
+    <script defer src="../assets/js/api.js"></script>
+    <script defer src="../assets/js/auth.js"></script>
+    <script defer src="../assets/js/flightBookings.js"></script>
+  </head>
+  <body>
+    <div id="app-navbar"></div>
+    <div class="container py-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <h1 class="h4 m-0">Flight Bookings</h1>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#flightBookingModal">+ Add Booking</button>
+      </div>
+      <div id="alert-box"></div>
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label class="form-label">Search</label>
+          <input id="search-input" class="form-control" placeholder="Airline, reference, remarks">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Client ID</label>
+          <input id="client-filter" class="form-control" type="number" min="1">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">From</label>
+          <input id="from-filter" class="form-control" type="date">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">To</label>
+          <input id="to-filter" class="form-control" type="date">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Sort</label>
+          <select id="sort-select" class="form-select">
+            <option value="flight_datetime:desc">Flight time ↓</option>
+            <option value="flight_datetime:asc">Flight time ↑</option>
+            <option value="created_at:desc">Created ↓</option>
+            <option value="created_at:asc">Created ↑</option>
+            <option value="airline:asc">Airline A→Z</option>
+          </select>
+        </div>
+      </div>
+      <div class="card-grid" id="flight-bookings-list"></div>
+    </div>
+
+    <div class="modal fade" id="flightBookingModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <form class="modal-content" id="flight-booking-form">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Flight Booking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div id="form-alert"></div>
+            <div class="mb-3">
+              <label class="form-label">Client</label>
+              <input class="form-control" name="client_id" type="number" inputmode="numeric" data-lookup="client" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Airline</label>
+              <input class="form-control" name="airline" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Flight date &amp; time</label>
+              <input class="form-control" name="flight_datetime" type="datetime-local" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Booking reference</label>
+              <input class="form-control" name="booking_reference" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Remarks</label>
+              <textarea class="form-control" name="remarks" rows="3" placeholder="Optional"></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Booking</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', async () => {
+        renderNavbar();
+        await requireAuthGuard();
+        setupFlightBookingFilters();
+        initFlightBookingForm();
+        loadFlightBookings();
+      });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  </body>
+</html>
