@@ -14,7 +14,7 @@ api.interceptors.response.use(
     if (err.response && err.response.status === 401) {
       localStorage.removeItem('ojpms_token');
       localStorage.removeItem('ojpms_user');
-      window.location.href = '/index.html';
+      navigateTo('index.html');
     }
     return Promise.reject(err);
   }

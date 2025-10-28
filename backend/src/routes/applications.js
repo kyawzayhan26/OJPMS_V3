@@ -7,6 +7,8 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
+import { promoteProspectStatus } from '../utils/prospectStatus.js';
 
 const router = Router();
 
@@ -118,18 +120,14 @@ router.post('/',
   body('prospect_id').isInt().toInt(),
   body('job_id').isInt().toInt(),
   body('status').isIn(['Draft', 'Submitted', 'Rejected', 'Shortlisted']),
-  body('notes').optional().isString(),
-  body('employer_response_at').optional().isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('employer_response_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const {
-        prospect_id,
-        job_id,
-        status,
-        notes = null,
-        employer_response_at = null
-      } = req.body;
+      const { prospect_id, job_id, status } = req.body;
+      const notes = normalizeNullable(req.body.notes);
+      const employer_response_at = normalizeNullable(req.body.employer_response_at);
 
       const result = await getPool().request()
         .input('prospect_id', prospect_id)
@@ -184,19 +182,30 @@ router.put(
   can('applications:write'),
   param('id').toInt().isInt({ min: 1 }),
   body('status').optional().isIn(['Draft','Submitted','Rejected','Shortlisted']),
-  body('notes').optional().isString(),
-  body('employer_response_at').optional().isISO8601(),
+  body('notes').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('employer_response_at').optional({ checkFalsy: true, nullable: true }).isISO8601(),
   handleValidation,
   async (req, res, next) => {
     try {
       const id = +req.params.id;
-      const {
-        status = null,
-        notes = null,
-        employer_response_at = null
-      } = req.body;
+      const { status = null } = req.body;
+      const notes = normalizeNullable(req.body.notes);
+      const employer_response_at = normalizeNullable(req.body.employer_response_at);
 
-      const result = await getPool().request()
+      const pool = getPool();
+
+      const existingRs = await pool
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT prospect_id, status
+          FROM Applications
+          WHERE id = @id AND isDeleted = 0;
+        `);
+      const existing = existingRs.recordset[0];
+      if (!existing) return res.status(404).json({ message: 'Not found' });
+
+      const result = await pool.request()
         .input('id', id)
         .input('status', status)
         .input('notes', notes)
@@ -224,6 +233,18 @@ router.put(
 
       const row = result.recordset[0];
       if (!row) return res.status(404).json({ message: 'Not found' });
+
+      const previousStatus = (existing.status || '').toLowerCase();
+      const currentStatus = (row.status || '').toLowerCase();
+
+      if (row.prospect_id && currentStatus === 'submitted' && currentStatus !== previousStatus) {
+        await promoteProspectStatus({
+          prospectId: row.prospect_id,
+          toStatus: 'application_submitted',
+          changedBy: req.user?.userId || null,
+          remarks: 'Application submitted from application details.',
+        });
+      }
 
       await writeAudit({
         req,
