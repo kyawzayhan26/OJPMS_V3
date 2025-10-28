@@ -79,8 +79,8 @@ function initProspectCreateForm() {
   form.dataset.bound = 'true';
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    toggleFormDisabled(form, true);
     const data = formToJSON(form);
+    toggleFormDisabled(form, true);
     try {
       const interestedJobId = data.interested_job_id ? parsePositiveInt(data.interested_job_id) : null;
       if (data.interested_job_id && !interestedJobId) {

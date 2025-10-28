@@ -61,8 +61,8 @@ function initEmployerCreateForm() {
   if (!form) return;
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    toggleFormDisabled(form, true);
     const data = formToJSON(form);
+    toggleFormDisabled(form, true);
     try {
       const payload = {
         name: data.name,

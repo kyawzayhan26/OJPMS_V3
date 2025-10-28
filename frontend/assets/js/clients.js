@@ -218,8 +218,8 @@ function initClientForm() {
   if (!form) return;
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    toggleFormDisabled(form, true);
     const data = formToJSON(form);
+    toggleFormDisabled(form, true);
     try {
       const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
       const payload = {

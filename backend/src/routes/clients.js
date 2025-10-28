@@ -331,44 +331,6 @@ router.get(
   }
 );
 
-router.get(
-  '/:id/history',
-  requireAuth,
-  can('clients:read'),
-  param('id').toInt().isInt({ min: 1 }),
-  handleValidation,
-  async (req, res, next) => {
-    try {
-      const id = Number(req.params.id);
-      const result = await getPool()
-        .request()
-        .input('id', id)
-        .query(`
-          SELECT TOP 50
-            h.*,
-            COALESCE(u.full_name, u.name) AS changed_by_name,
-            u.email                       AS changed_by_email
-          FROM ClientStatusHistory h
-          LEFT JOIN Users u ON u.id = h.changed_by
-          WHERE h.client_id = @id
-          ORDER BY h.changed_at DESC;
-
-          SELECT TOP 50
-            a.*,
-            COALESCE(u.full_name, u.name) AS actor_name,
-            u.email                       AS actor_email
-          FROM AuditLogs a
-          LEFT JOIN Users u ON u.id = a.actor_user_id
-          WHERE a.entity = 'Clients' AND a.entity_id = @id
-          ORDER BY a.created_at DESC;
-        `);
-
-      const [statusHistory = [], auditLogs = []] = result.recordsets || [];
-      res.json({ statusHistory, auditLogs });
-    } catch (err) { next(err); }
-  }
-);
-
 // SOFT DELETE client
 router.delete(
   '/:id',

@@ -71,8 +71,8 @@ function initFlightBookingForm() {
   form.dataset.bound = 'true';
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    toggleFormDisabled(form, true);
     const data = formToJSON(form);
+    toggleFormDisabled(form, true);
     try {
       const clientId = requirePositiveInt(data.client_id, 'Client');
       if (!data.flight_datetime) {

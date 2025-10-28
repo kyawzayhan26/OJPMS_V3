@@ -76,10 +76,10 @@ function initMatchCreateForm() {
   form.dataset.bound = 'true';
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
+    const data = formToJSON(form);
     toggleFormDisabled(form, true);
     if (document.getElementById('form-alert')) document.getElementById('form-alert').innerHTML = '';
     try {
-      const data = formToJSON(form);
       const prospectId = requirePositiveInt(data.prospect_id, 'Prospect');
       const jobId = requirePositiveInt(data.job_id, 'Job');
       const payload = {

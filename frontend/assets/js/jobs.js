@@ -66,8 +66,8 @@ function initJobForm() {
   if (!form) return;
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
-    toggleFormDisabled(form, true);
     const data = formToJSON(form);
+    toggleFormDisabled(form, true);
     try {
       const employerId = requirePositiveInt(data.employer_id, 'Employer');
       const payload = {
