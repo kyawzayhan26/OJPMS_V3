@@ -425,7 +425,7 @@ function renderNavbar() {
     },
     {
       path: 'visa-applications/list.html',
-      label: 'Visa Applications',
+      label: 'Visa',
       match: (p) => p.includes('/visa-applications/'),
     },
     {
@@ -435,7 +435,7 @@ function renderNavbar() {
     },
     {
       path: 'flight-bookings/list.html',
-      label: 'Flight Bookings',
+      label: 'Flights',
       match: (p) => p.includes('/flight-bookings/'),
     },
   ];
