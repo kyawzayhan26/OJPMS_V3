@@ -6,6 +6,7 @@ import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { promoteProspectStatus } from '../utils/prospectStatus.js';
 
 const router = Router();
 
@@ -237,49 +238,70 @@ router.put(
       } = req.body;
 
       const pool = getPool();
-      const request = pool.request()
+
+      const existingRs = await pool
+        .request()
         .input('id', id)
+        .query(`
+          SELECT prospect_id, status, is_current
+          FROM ProspectJobMatches
+          WHERE id = @id AND isDeleted = 0;
+        `);
+      const existing = existingRs.recordset[0];
+      if (!existing) return res.status(404).json({ message: 'Not found' });
+
+      const updateRs = await pool
+        .request()
+        .input('id', id)
+        .input('prospect_id', existing.prospect_id)
         .input('job_id', job_id)
         .input('status', status)
         .input('rationale', rationale)
-        .input('is_current', is_current === null ? null : (is_current ? 1 : 0));
+        .input('is_current', is_current === null ? null : (is_current ? 1 : 0))
+        .query(`
+          IF @is_current = 1
+          BEGIN
+            UPDATE ProspectJobMatches
+               SET is_current = 0,
+                   updated_at = SYSUTCDATETIME()
+             WHERE prospect_id = @prospect_id AND id <> @id AND isDeleted = 0;
+          END;
 
-      const queryText = `
-        DECLARE @prospect_id BIGINT;
-        SELECT @prospect_id = prospect_id FROM ProspectJobMatches WHERE id = @id;
-
-        IF @prospect_id IS NULL
-        BEGIN
-          SELECT NULL AS missing;
-          RETURN;
-        END;
-
-        IF @is_current = 1
-        BEGIN
           UPDATE ProspectJobMatches
-             SET is_current = 0,
+             SET job_id    = COALESCE(@job_id, job_id),
+                 status    = COALESCE(@status, status),
+                 rationale = COALESCE(@rationale, rationale),
+                 is_current = COALESCE(@is_current, is_current),
                  updated_at = SYSUTCDATETIME()
-           WHERE prospect_id = @prospect_id AND id <> @id AND isDeleted = 0;
-        END;
+           WHERE id = @id AND isDeleted = 0;
 
-        UPDATE ProspectJobMatches
-           SET job_id    = COALESCE(@job_id, job_id),
-               status    = COALESCE(@status, status),
-               rationale = COALESCE(@rationale, rationale),
-               is_current = COALESCE(@is_current, is_current),
-               updated_at = SYSUTCDATETIME()
-         WHERE id = @id AND isDeleted = 0;
+          SELECT m.*, p.full_name AS prospect_name, j.title AS job_title
+          FROM ProspectJobMatches m
+          JOIN Prospects p ON p.id = m.prospect_id
+          JOIN Jobs j ON j.id = m.job_id
+          WHERE m.id = @id;
+        `);
 
-        SELECT m.*, p.full_name AS prospect_name, j.title AS job_title
-        FROM ProspectJobMatches m
-        JOIN Prospects p ON p.id = m.prospect_id
-        JOIN Jobs j ON j.id = m.job_id
-        WHERE m.id = @id;
-      `;
+      const row = updateRs.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
 
-      const result = await request.query(queryText);
-      const row = result.recordset[0];
-      if (!row || row.missing === null) return res.status(404).json({ message: 'Not found' });
+      const previousStatus = (existing.status || '').toLowerCase();
+      const currentStatus = (row.status || '').toLowerCase();
+      const isCurrent = row.is_current === true || row.is_current === 1;
+
+      if (
+        row.prospect_id &&
+        isCurrent &&
+        currentStatus === 'approved' &&
+        currentStatus !== previousStatus
+      ) {
+        await promoteProspectStatus({
+          prospectId: row.prospect_id,
+          toStatus: 'jobmatch_approved',
+          changedBy: req.user?.userId || null,
+          remarks: 'Job match approved from job match details.',
+        });
+      }
 
       await writeAudit({
         req,
