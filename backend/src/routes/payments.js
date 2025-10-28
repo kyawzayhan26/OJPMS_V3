@@ -1,11 +1,12 @@
 import { Router } from 'express';
-import { query, body } from 'express-validator';
+import { query, body, param } from 'express-validator';
 import { getPool } from '../utils/db.js';
 import { requireAuth, can } from '../middleware/auth.js';
 import { writeAudit } from '../utils/audit.js';
 import { handleValidation } from '../middleware/validate.js';
 import { paginate } from '../middleware/paginate.js';
 import { likeParam, orderByClause } from '../utils/search.js';
+import { normalizeNullable } from '../utils/normalize.js';
 
 const router = Router();
 
@@ -18,7 +19,7 @@ router.get(
   requireAuth,
   can('payments:read'),
   query('search').optional().isString(),
-  query('client_id').optional().toInt().isInt({ min: 1 }),
+  query('client_id').optional({ checkFalsy: true }).toInt().isInt({ min: 1 }),
   query('status').optional().isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
   query('currency').optional().isLength({ min: 3, max: 3 }),
   query('min_amount').optional().toFloat().isFloat({ min: 0 }),
@@ -133,6 +134,32 @@ router.get(
   }
 );
 
+// GET /payments/:id
+router.get(
+  '/:id',
+  requireAuth,
+  can('payments:read'),
+  param('id').toInt().isInt({ min: 1 }),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const result = await getPool()
+        .request()
+        .input('id', id)
+        .query(`
+          SELECT p.*, c.full_name AS client_name
+            FROM Payments p
+            LEFT JOIN Clients c ON c.id = p.client_id
+           WHERE p.id = @id;
+        `);
+      const row = result.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
+      res.json(row);
+    } catch (err) { next(err); }
+  }
+);
+
 /**
  * POST /payments
  */
@@ -144,11 +171,14 @@ router.post(
   body('amount').isFloat({ gt: 0 }),
   body('currency').isLength({ min: 3, max: 3 }),
   body('status').isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
-  body('reference_no').optional().isString(),
+  body('reference_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('invoice_description').optional({ checkFalsy: true, nullable: true }).isString(),
   handleValidation,
   async (req, res, next) => {
     try {
-      const { client_id, amount, currency, status, reference_no = null } = req.body;
+      const { client_id, amount, currency, status } = req.body;
+      const reference_no = normalizeNullable(req.body.reference_no);
+      const invoice_description = normalizeNullable(req.body.invoice_description);
 
       const result = await getPool()
         .request()
@@ -158,15 +188,16 @@ router.post(
         .input('status', status)
         .input('collected_by', req.user?.userId || null)
         .input('reference_no', reference_no)
+        .input('invoice_description', invoice_description)
         .query(`
           INSERT INTO Payments
-            (client_id, amount, currency, status, collected_by, collected_at, reference_no, created_at)
+            (client_id, amount, currency, status, collected_by, collected_at, reference_no, invoice_description, created_at)
           OUTPUT INSERTED.*
           VALUES
             (
               @client_id, @amount, @currency, @status, @collected_by,
               CASE WHEN @status='Paid' THEN SYSUTCDATETIME() ELSE NULL END,
-              @reference_no, SYSUTCDATETIME()
+              @reference_no, @invoice_description, SYSUTCDATETIME()
             );
         `);
 
@@ -181,6 +212,87 @@ router.post(
       });
 
       res.status(201).json(row);
+    } catch (err) { next(err); }
+  }
+);
+
+router.put(
+  '/:id',
+  requireAuth,
+  can('payments:write'),
+  param('id').toInt().isInt({ min: 1 }),
+  body('client_id').optional({ checkFalsy: true, nullable: true }).toInt().isInt({ min: 1 }),
+  body('amount').optional().isFloat({ gt: 0 }),
+  body('currency').optional().isLength({ min: 3, max: 3 }),
+  body('status').optional().isIn(['Pending', 'Paid', 'Waived', 'Refunded']),
+  body('reference_no').optional({ checkFalsy: true, nullable: true }).isString(),
+  body('invoice_description').optional({ checkFalsy: true, nullable: true }).isString(),
+  handleValidation,
+  async (req, res, next) => {
+    try {
+      const id = Number(req.params.id);
+      const client_id = req.body.client_id ?? null;
+      const amount = req.body.amount ?? null;
+      const currency = req.body.currency ?? null;
+      const status = req.body.status ?? null;
+      const reference_no = normalizeNullable(req.body.reference_no);
+      const invoice_description = normalizeNullable(req.body.invoice_description);
+      const hasReferenceNo = Object.prototype.hasOwnProperty.call(req.body, 'reference_no');
+      const hasInvoiceDescription = Object.prototype.hasOwnProperty.call(req.body, 'invoice_description');
+
+      const pool = getPool();
+      const request = pool.request()
+        .input('id', id)
+        .input('client_id', client_id)
+        .input('amount', amount)
+        .input('currency', currency)
+        .input('status', status)
+        .input('reference_no', reference_no)
+        .input('invoice_description', invoice_description)
+        .input('has_reference_no', hasReferenceNo ? 1 : 0)
+        .input('has_invoice_description', hasInvoiceDescription ? 1 : 0)
+        .input('user_id', req.user?.userId || null);
+
+      const result = await request.query(`
+        UPDATE Payments
+           SET client_id = COALESCE(@client_id, client_id),
+               amount = COALESCE(@amount, amount),
+               currency = COALESCE(@currency, currency),
+               status = COALESCE(@status, status),
+               reference_no = CASE WHEN @has_reference_no = 1 THEN @reference_no ELSE reference_no END,
+               invoice_description = CASE WHEN @has_invoice_description = 1 THEN @invoice_description ELSE invoice_description END,
+               collected_by = CASE
+                 WHEN @status IS NULL THEN collected_by
+                 WHEN @status = 'Paid' THEN COALESCE(collected_by, @user_id)
+                 ELSE NULL
+               END,
+               collected_at = CASE
+                 WHEN @status IS NULL THEN collected_at
+                 WHEN @status = 'Paid' THEN COALESCE(collected_at, SYSUTCDATETIME())
+                 ELSE NULL
+               END,
+               updated_at = SYSUTCDATETIME()
+         WHERE id = @id;
+
+        SELECT p.*, c.full_name AS client_name
+          FROM Payments p
+          LEFT JOIN Clients c ON c.id = p.client_id
+         WHERE p.id = @id;
+      `);
+
+      const row = result.recordset[0];
+      if (!row) return res.status(404).json({ message: 'Not found' });
+
+      await writeAudit({
+        req,
+        actorUserId: req.user?.userId || null,
+        action: 'PAYMENT_UPDATE',
+        entity: 'Payments',
+        entityId: id,
+        details: row,
+      });
+
+      res.json(row);
     } catch (err) { next(err); }
   }
 );
